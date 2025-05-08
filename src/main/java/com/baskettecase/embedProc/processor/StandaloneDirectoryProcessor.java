@@ -1,7 +1,8 @@
 package com.baskettecase.embedProc.processor;
 
-import com.baskettecase.textProc.config.ProcessorProperties;
-import com.baskettecase.textProc.service.ExtractionService;
+import com.baskettecase.embedProc.config.ProcessorProperties;
+import com.baskettecase.embedProc.service.EmbeddingService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -30,16 +31,17 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(StandaloneDirectoryProcessor.class);
 
     private final ProcessorProperties.Standalone standaloneProps;
-    private final ExtractionService extractionService;
+    private final EmbeddingService embeddingService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Constructs a StandaloneDirectoryProcessor with injected configuration and extraction service.
      * @param processorProperties Configuration properties for processor directories and mode.
      * @param extractionService Service for extracting text from files.
      */
-    public StandaloneDirectoryProcessor(ProcessorProperties processorProperties, ExtractionService extractionService) {
+    public StandaloneDirectoryProcessor(ProcessorProperties processorProperties, EmbeddingService embeddingService) {
         this.standaloneProps = processorProperties.getStandalone();
-        this.extractionService = extractionService;
+        this.embeddingService = embeddingService;
     }
 
     /**
@@ -63,11 +65,22 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
         createDirectoriesIfNotExist(inputDir, outputDir, errorDir, processedDir);
 
         try (Stream<Path> fileStream = Files.list(inputDir)) {
+            long fileCount = fileStream.filter(Files::isRegularFile).count();
+            if (fileCount == 0) {
+                logger.info("No files to process in input directory {}. Exiting standalone mode.", inputDir);
+                return;
+            }
+        } catch (IOException e) {
+            logger.error("Error reading input directory {}: {}", inputDir, e.getMessage(), e);
+        }
+        // Re-list to process files, since the previous stream is closed after count
+        try (Stream<Path> fileStream = Files.list(inputDir)) {
             fileStream.filter(Files::isRegularFile).forEach(this::processFile);
         } catch (IOException e) {
             logger.error("Error reading input directory {}: {}", inputDir, e.getMessage(), e);
         }
         logger.info("--- STANDALONE MODE FINISHED ---");
+        System.exit(0);
     }
 
     /**
@@ -81,12 +94,21 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
         Path processedDir = Paths.get(standaloneProps.getProcessedDirectory());
 
         try {
-            String extractedText = extractionService.extractTextFromFile(filePath); // Or use extractTextWithTikaFacade
+            String extractedText = Files.readString(filePath, StandardCharsets.UTF_8);
 
             if (extractedText != null && !extractedText.isBlank()) {
-                Path outputFile = outputDir.resolve(filePath.getFileName().toString() + ".txt");
-                Files.writeString(outputFile, extractedText, StandardCharsets.UTF_8);
-                logger.info("Successfully extracted text to: {}", outputFile);
+                
+
+                // Generate embedding and write as JSON
+                try {
+                    var embedding = embeddingService.generateEmbedding(extractedText);
+                    Path embeddingFile = outputDir.resolve(filePath.getFileName().toString() + ".embedding.json");
+                    objectMapper.writeValue(embeddingFile.toFile(), embedding);
+                    logger.info("Successfully wrote embedding to: {}", embeddingFile);
+                } catch (Exception embedEx) {
+                    logger.error("Failed to generate/write embedding for {}: {}", filePath.getFileName(), embedEx.getMessage(), embedEx);
+                }
+
                 moveToDirectory(filePath, processedDir.resolve(filePath.getFileName()), "processed");
             } else if (extractedText == null) { // Indicates a parsing error handled by TikaExtractionService
                 logger.warn("Failed to extract text from (parser error): {}. Moving to error directory.", filePath.getFileName());

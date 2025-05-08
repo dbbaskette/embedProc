@@ -5,7 +5,7 @@
 set -e
 
 DOCKERHUB_USER=dbbaskette
-IMAGE_NAME=textproc
+IMAGE_NAME=embedoroc
 TAG=${3:-latest}
 
 # Build the Spring Boot JAR
