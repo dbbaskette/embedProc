@@ -1,20 +1,14 @@
 package com.baskettecase.embedProc.processor;
 
-import com.baskettecase.textProc.service.ExtractionService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.ai.ollama.OllamaEmbeddingClient;
+import org.springframework.ai.embedding.EmbeddingClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
-import io.minio.MinioClient;
-import io.minio.GetObjectArgs;
-import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.function.Function;
 
 /**
@@ -48,32 +42,27 @@ import java.util.function.Function;
 @Component
 @Profile("scdf")
 public class ScdfStreamProcessor {
-    // TODO: Implement SCDF logic for embedProc
-    private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
-    private final ExtractionService extractionService;
-    private final MinioClient minioClient;
+    private final EmbeddingClient embeddingClient;
+
+    @Autowired
+    public ScdfStreamProcessor(OllamaEmbeddingClient embeddingClient) {
+        this.embeddingClient = embeddingClient;
+    }
 
     /**
-     * Constructs the SCDF Stream Processor.
-     *
-     * @param extractionService Service for text extraction from files (Apache Tika-based).
-     * @throws IllegalStateException if S3_ACCESS_KEY or S3_SECRET_KEY are missing in the environment.
+     * Spring Cloud Stream Function: receives text as input, outputs embedding vector.
+     * Input message payload: String (text to embed)
+     * Output message payload: List<Double> (embedding vector)
      */
-    public ScdfStreamProcessor(ExtractionService extractionService) {
-        this.extractionService = extractionService;
-
-        // Read MinIO config from environment variables
-        String endpoint = System.getenv().getOrDefault("S3_ENDPOINT", "http://localhost:9000");
-        String accessKey = System.getenv("S3_ACCESS_KEY");
-        String secretKey = System.getenv("S3_SECRET_KEY");
-        logger.atDebug().log("MinIO config: endpoint={}, accessKey={}, secretKey={}", endpoint, accessKey, secretKey);
-        if (accessKey == null || secretKey == null) {
-            throw new IllegalStateException("S3_ACCESS_KEY and S3_SECRET_KEY environment variables must be set");
-        }
-
-        this.minioClient = MinioClient.builder()
-                .endpoint(endpoint)
-                .credentials(accessKey, secretKey)
+    @Bean
+    public Function<Message<String>, Message<List<Double>>> embedText() {
+        return message -> {
+            String text = message.getPayload();
+            List<Double> embedding = embeddingClient.embed(text);
+            return MessageBuilder.withPayload(embedding).build();
+        };
+    }
+}                .credentials(accessKey, secretKey)
                 .build();
     }
 
