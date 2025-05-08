@@ -1,0 +1,43 @@
+{
+  "groups": [
+    {
+      "name": "app.processor",
+      "type": "com.baskettecase.embedProc.config.ProcessorProperties",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties"
+    },
+    {
+      "name": "app.processor.standalone",
+      "type": "com.baskettecase.embedProc.config.ProcessorProperties$Standalone",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties",
+      "sourceMethod": "public com.baskettecase.embedProc.config.ProcessorProperties.Standalone getStandalone() "
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.processor.mode",
+      "type": "java.lang.String",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties"
+    },
+    {
+      "name": "app.processor.standalone.error-directory",
+      "type": "java.lang.String",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties$Standalone"
+    },
+    {
+      "name": "app.processor.standalone.input-directory",
+      "type": "java.lang.String",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties$Standalone"
+    },
+    {
+      "name": "app.processor.standalone.output-directory",
+      "type": "java.lang.String",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties$Standalone"
+    },
+    {
+      "name": "app.processor.standalone.processed-directory",
+      "type": "java.lang.String",
+      "sourceType": "com.baskettecase.embedProc.config.ProcessorProperties$Standalone"
+    }
+  ],
+  "hints": []
+}
