@@ -1,10 +1,6 @@
 package com.baskettecase.embedProc.service;
 
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.ai.ollama.api.OllamaOptions;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
@@ -64,45 +60,29 @@ public class EmbeddingService {
         log.trace("This is a TRACE level log!");
 
         try {
-            OllamaOptions options = OllamaOptions.builder()
-                    .model(modelName)
-                    .truncate(true)
-                    .build();
-            text = "This is a much smaller test";
-
-            
-            EmbeddingRequest request = new EmbeddingRequest(List.of(text), options);
-            EmbeddingResponse response = embeddingModel.call(request);
-    
-            float[] embeddingArray = response.getResults().get(0).getOutput();
-            List<Double> embedding = new ArrayList<>(embeddingArray.length);
-            for (float f : embeddingArray) {
-                embedding.add((double) f);
+            List<Double> embeddingArray = embeddingModel.embed(text);
+            if (embeddingArray == null) {
+                System.err.println("EmbeddingModel.embed returned null!");
+                log.error("EmbeddingModel.embed returned null!");
+                return List.of();
             }
-            return embedding;
+            if (embeddingArray.isEmpty()) {
+                System.err.println("EmbeddingModel.embed returned an empty list!");
+                log.warn("EmbeddingModel.embed returned an empty list!");
+                return List.of();
+            }
+            System.out.println("DEBUG: [EmbeddingService] Embedding: " + embeddingArray);
+            List<Double> embeddingList = new ArrayList<>(embeddingArray.size());
+            for (Double f : embeddingArray) {
+                embeddingList.add(f);
+            }
+            return embeddingList;
         } catch (Exception e) {
-            System.err.println("Failed to generate embedding: " + e.getMessage());
-            throw new RuntimeException("Embedding generation failed: " + e.getMessage(), e);
+            System.err.println("Exception in embeddingModel.embed: " + e.getMessage());
+            e.printStackTrace();
+            log.error("Exception in embeddingModel.embed", e);
+            return List.of();
         }
     }
-
-    /**
-     * Preferred version: Uses embeddingModel.embed(text) and returns the result directly.
-     */
-    // public List<Double> generateEmbedding(String text) {
-    //     System.out.println("DEBUG: [EmbeddingService] Model name: " + modelName);
-    //     System.out.println("DEBUG: [EmbeddingService] Base URL: " + baseUrl);
-    //     System.out.println("DEBUG: [EmbeddingService] Text: " + (text.length() > 100 ? text.substring(0, 100) + "..." : text));
-    //     try {
-    //         float[] embeddingArray = embeddingModel.embed(text);
-    //         List<Double> embedding = new ArrayList<>(embeddingArray.length);
-    //         for (float f : embeddingArray) {
-    //             embedding.add((double) f);
-    //         }
-    //         return embedding;
-    //     } catch (Exception e) {
-    //         System.err.println("Failed to generate embedding: " + e.getMessage());
-    //         throw new RuntimeException("Embedding generation failed: " + e.getMessage(), e);
-    //     }
-    // }
 }
+   
