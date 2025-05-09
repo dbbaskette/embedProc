@@ -13,6 +13,9 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.messaging.Message;
 
 /**
  * ScdfStreamProcessor is a Spring Cloud Data Flow (SCDF) stream processor.
@@ -29,6 +32,7 @@ import java.util.function.Function;
 @Component
 @Profile("scdf")
 public class ScdfStreamProcessor {
+    private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
     private final EmbeddingService embeddingService;
 
     public ScdfStreamProcessor(EmbeddingService embeddingService) {
@@ -45,11 +49,17 @@ public class ScdfStreamProcessor {
      */
     @Profile("scdf")
     @Bean
-    public Function<Message<String>, Message<List<Double>>> embedText() {
+    public Function<Message<String>, Message<List<Double>>> embedProc() {
         return message -> {
             String text = message.getPayload();
             List<Double> embedding = embeddingService.generateEmbedding(text);
-            return MessageBuilder.withPayload(embedding).build();
+            Message<List<Double>> outgoing = MessageBuilder.withPayload(embedding).build();
+            logger.info("[embedProc] Sending embedding to output queue. Text preview: '{}', Embedding size: {}, Embedding (first 5): {}", 
+                text.length() > 50 ? text.substring(0, 50) + "..." : text, 
+                embedding.size(), 
+                embedding.size() > 5 ? embedding.subList(0, 5) : embedding);
+            return outgoing;
         };
+
     }
 }

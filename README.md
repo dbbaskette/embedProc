@@ -1,5 +1,10 @@
 # embedProc: Spring Cloud Data Flow Embedding Processor
 
+## Project Structure & Ignore Rules
+
+This project uses a `.gitignore` file to exclude build artifacts from version control. The `target/` directory, which contains compiled classes and other build outputs, is ignored by default. This helps keep the repository clean and prevents accidental commits of generated files.
+
+
 This project provides a Spring Cloud Data Flow (SCDF) stream processor that generates embedding vectors for input text using the Ollama Nomic model via Spring AI. It is intended for use in streaming data pipelines where you need to convert text to embeddings for downstream processing.
 
 ## Features
