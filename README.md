@@ -19,7 +19,8 @@ embedProc is a Spring Cloud Data Flow (SCDF) stream processor that generates emb
 - Embeddings are generated using Spring AI EmbeddingModel (Ollama Nomic)
 - Embeddings and input text are persisted directly in Postgres/pgvector using VectorStore
 - All processing and storage events are logged
-- No output queue is used; embeddings are stored only in the database
+- No output queue is used for embeddings; embeddings are stored only in the database
+- After each embedding is stored, a JSON log message is published to a Rabbit queue (e.g., `embedding.log`) with details of the operation (text preview, size, timestamp, etc.)
 
 ## How it works
 - embedProc listens for text messages on an input channel (e.g., RabbitMQ, Kafka, or direct invocation).
@@ -40,7 +41,23 @@ java -jar target/embedProc-0.0.1-SNAPSHOT.jar --spring.profiles.active=scdf \
 ### Example Message Flow
 - Input: Message with a String payload (text)
 - Side effect: Embedding and text persisted in Postgres/pgvector
-- No output message is produced
+- After each embedding is stored, a JSON log message is published to a Rabbit queue with details of the operation
+- No output message containing the embedding is produced
+
+## Embedding Storage Log Queue
+After each embedding is stored, a JSON object is sent to the Rabbit queue (default: `embedding.log`).
+
+**Sample log message:**
+```json
+{
+  "textPreview": "This is a sample input...",
+  "embeddingSize": 1536,
+  "timestamp": "2025-05-09T22:40:01Z",
+  "status": "SUCCESS",
+  "errorMessage": null,
+  "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+}
+```
 
 ## Setup
 1. Clone the repository and ensure Java 21+ and Maven are installed.
