@@ -8,6 +8,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Service for persisting text embeddings in PostgreSQL/pgvector using Spring AI's VectorStore.
+ * <p>
+ * Handles creation of Document objects and storage, with logging for both success and error cases.
+ */
 @Service
 public class VectorStoreService {
     private static final Logger logger = LoggerFactory.getLogger(VectorStoreService.class);
@@ -19,10 +24,10 @@ public class VectorStoreService {
 
     /**
      * Stores the embedding and associated text in the pgvector database.
-     * Logs success and error.
+     * Logs both success and error.
      *
-     * @param text      The original text.
-     * @param embedding The embedding vector.
+     * @param text      The original input text
+     * @param embedding The embedding vector to store
      */
     public void saveEmbedding(String text, List<Double> embedding) {
         try {
