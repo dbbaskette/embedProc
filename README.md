@@ -1,3 +1,5 @@
+![embedProc logo](images/embedProc.jpg)
+
 # embedProc: Spring Cloud Data Flow Embedding Processor
 
 ## Project Structure & Ignore Rules
