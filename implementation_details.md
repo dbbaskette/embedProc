@@ -1,5 +1,22 @@
 # Implementation Details
 
+## Embedding Storage with pgvector
+
+Embeddings are now stored in PostgreSQL with pgvector using the Spring AI `VectorStore` interface. This is handled by the `VectorStoreService` class in the `service` package.
+
+- After an embedding is generated, `VectorStoreService.saveEmbedding(text, embedding)` is called.
+- The service creates a `Document`, sets its content and embedding, and stores it using `vectorStore.add(...)`.
+- Both successful and failed storage attempts are logged.
+
+**Success log example:**
+```
+[VectorStoreService] Successfully stored embedding for text preview: 'This is a sample input...', size: 1536
+```
+**Error log example:**
+```
+[VectorStoreService] Failed to store embedding for text preview: 'This is a sample input...'. Error: <error message>
+```
+
 ## Logging for Embedding Output
 
 The `ScdfStreamProcessor` logs every embedding sent to the output queue. Each log entry includes a preview of the input text, the embedding size, and the first five values of the embedding. This allows you to verify that embeddings are being placed on the RabbitMQ queue.

@@ -1,6 +1,7 @@
 package com.baskettecase.embedProc.processor;
 
 import com.baskettecase.embedProc.service.EmbeddingService;
+import com.baskettecase.embedProc.service.VectorStoreService;
 
 import org.springframework.ai.ollama.OllamaEmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -34,9 +35,11 @@ import org.springframework.messaging.Message;
 public class ScdfStreamProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
     private final EmbeddingService embeddingService;
+    private final VectorStoreService vectorStoreService;
 
-    public ScdfStreamProcessor(EmbeddingService embeddingService) {
+    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorStoreService vectorStoreService) {
         this.embeddingService = embeddingService;
+        this.vectorStoreService = vectorStoreService;
     }
     
     /**
@@ -53,6 +56,8 @@ public class ScdfStreamProcessor {
         return message -> {
             String text = message.getPayload();
             List<Double> embedding = embeddingService.generateEmbedding(text);
+            // Store in pgvector via VectorStoreService
+            vectorStoreService.saveEmbedding(text, embedding);
             Message<List<Double>> outgoing = MessageBuilder.withPayload(embedding).build();
             logger.info("[embedProc] Sending embedding to output queue. Text preview: '{}', Embedding size: {}, Embedding (first 5): {}", 
                 text.length() > 50 ? text.substring(0, 50) + "..." : text, 
