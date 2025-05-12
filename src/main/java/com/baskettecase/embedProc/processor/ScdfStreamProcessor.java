@@ -18,6 +18,7 @@ import java.util.function.Function;
 import com.baskettecase.embedProc.model.EmbeddingStorageLog;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,8 +48,6 @@ import org.slf4j.LoggerFactory;
 @Component
 @Profile("scdf")
 public class ScdfStreamProcessor {
-    @Autowired
-    private MessageChannel embeddingLogOutput;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -83,7 +82,7 @@ public class ScdfStreamProcessor {
      */
     @Profile("scdf")
     @Bean
-    public Function<Message<String>, Message<List<Double>>> embedProc() {
+    public Function<Message<String>, Message<String>> embedProc() {
         return message -> {
             String text = message.getPayload();
             // Generate embedding for input text
@@ -94,7 +93,7 @@ public class ScdfStreamProcessor {
                 text.length() > 50 ? text.substring(0, 50) + "..." : text, 
                 embedding.size(), 
                 embedding.size() > 5 ? embedding.subList(0, 5) : embedding);
-            // Send JSON log to Rabbit queue
+            // Build JSON log to send to output binding
             try {
                 EmbeddingStorageLog log = new EmbeddingStorageLog(
                     text.length() > 50 ? text.substring(0, 50) + "..." : text,
@@ -105,11 +104,11 @@ public class ScdfStreamProcessor {
                     UUID.randomUUID().toString()
                 );
                 String jsonLog = objectMapper.writeValueAsString(log);
-                embeddingLogOutput.send(MessageBuilder.withPayload(jsonLog).build());
+                return MessageBuilder.withPayload(jsonLog).build();
             } catch (Exception e) {
-                logger.error("[embedProc] Failed to send log message to Rabbit queue: {}", e.getMessage());
+                logger.error("[embedProc] Failed to build log message: {}", e.getMessage());
+                return null;
             }
-            return null;
         };
     }
 }
