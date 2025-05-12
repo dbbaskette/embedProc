@@ -20,11 +20,17 @@ import org.slf4j.LoggerFactory;
  * Ollama's /api/embeddings endpoint may require a different payload structure ("prompt" as a string, not "input" as an array),
  * so compatibility depends on the versions of Spring AI and Ollama in use. If you encounter 404 errors, consider using
  * a direct HTTP call to the Ollama API with the correct payload.
- *
+ * <p>
  * Configuration:
  * <ul>
  *   <li>spring.ai.ollama.base-url</li>
  *   <li>spring.ai.ollama.embedding.model</li>
+ * </ul>
+ * <b>Responsibilities:</b>
+ * <ul>
+ *   <li>Generate embeddings for input text via Spring AI</li>
+ *   <li>Log debug information for troubleshooting</li>
+ *   <li>Handle errors and return empty lists on failure</li>
  * </ul>
  */
 @Service
@@ -43,16 +49,12 @@ public class EmbeddingService {
 
     /**
      * Generates an embedding vector from the given text using the configured embedding model.
-     *
-     * <p>This method logs debug information about the model, base URL, and a preview of the text.
-     * It constructs an EmbeddingRequest and calls the embedding model. If successful, it returns
-     * the embedding as a list of doubles. If embedding generation fails, a RuntimeException is thrown.
+     * <p>
+     * Logs debug information about the model, base URL, and a preview of the text. Handles null or empty results gracefully.
      *
      * @param text The input text to embed.
-     * @return List<Double> embedding vector.
-     * @throws RuntimeException if embedding generation fails (e.g., due to API incompatibility or server errors).
+     * @return List<Double> embedding vector (empty list if embedding fails)
      */
-  
     public List<Double> generateEmbedding(String text) {
         System.out.println("DEBUG: [EmbeddingService] Model name: " + modelName);
         System.out.println("DEBUG: [EmbeddingService] Base URL: " + baseUrl);
