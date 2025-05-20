@@ -9,17 +9,25 @@ import java.nio.file.*;
 import java.util.List;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.document.Document;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 @Profile("standalone")
 public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private final EmbeddingModel embeddingModel;
     private final VectorStore vectorStore;
+    private final VectorQueryProcessor vectorQueryProcessor;
+    private final String queryText;
 
-    public StandaloneDirectoryProcessor(EmbeddingModel embeddingModel, VectorStore vectorStore) {
+    @Autowired
+    public StandaloneDirectoryProcessor(EmbeddingModel embeddingModel, VectorStore vectorStore, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
         this.embeddingModel = embeddingModel;
         this.vectorStore = vectorStore;
+        this.vectorQueryProcessor = vectorQueryProcessor;
+        this.queryText = queryText;
     }
+
 
     @Override
     public void run(String... args) throws Exception {
@@ -33,7 +41,9 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
                 processFile(entry);
             }
         }
-        // Exit after processing all files and writing to the database
+        // After processing all files and writing to the database, run the query if defined
+        vectorQueryProcessor.runQuery(queryText, 5);
+        // Exit after processing all files and running the query
         System.exit(0);
     }
 
