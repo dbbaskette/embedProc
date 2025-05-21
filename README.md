@@ -1,169 +1,94 @@
-<img src="images/embedProc.jpg" alt="embedProc logo" width="200"/>
+# embedProc: Text Embedding Processor
 
-# embedProc: Spring Cloud Data Flow Embedding Processor
-
-## Overview
-embedProc is a Spring Cloud Data Flow (SCDF) stream processor that generates embedding vectors for input text using the Ollama Nomic model via Spring AI. It is designed for streaming data pipelines, enabling downstream services to consume and store embeddings for further processing or retrieval.
+A Spring Cloud Data Flow (SCDF) processor that generates and stores text embeddings using Ollama's Nomic model and PostgreSQL with pgvector.
 
 ## Features
-- Listens for text messages on an input queue (when the `scdf` profile is active)
-- Uses the Ollama Nomic embedding model (or compatible) to generate embedding vectors
-- Stores embeddings in PostgreSQL with pgvector via Spring AI's VectorStore
-- Publishes embedding vectors to an output queue
-- Logs all outgoing embeddings and persistence results for traceability
 
-## Architecture
-```
-[Input Queue] --> [embedProc Processor] --> [Postgres/pgvector DB]
-```
-- Embeddings are generated using Spring AI EmbeddingModel (Ollama Nomic)
-- Embeddings and input text are persisted directly in Postgres/pgvector using VectorStore
-- All processing and storage events are logged
-- No output queue is used for embeddings; embeddings are stored only in the database
-- After each embedding is stored, a JSON log message is published to a Rabbit queue (e.g., `embedding.log`) with details of the operation (text preview, size, timestamp, etc.)
+- 🚀 Stream processing of text messages
+- 🔍 Generates embeddings using Ollama's Nomic model
+- 💾 Stores embeddings in PostgreSQL with pgvector
+- 📊 Handles large documents with automatic chunking
+- 📝 Logs all operations for monitoring
 
-## How it works
-- embedProc listens for text messages on an input channel (e.g., RabbitMQ, Kafka, or direct invocation).
-- For each message, it generates an embedding and stores it in the Postgres/pgvector database.
-- No message is sent downstream; the embedding is only persisted in the database.
+## Prerequisites
 
-## Usage
-Run the processor with the `scdf` profile active. Example:
-```sh
-java -jar target/embedProc-0.0.1-SNAPSHOT.jar --spring.profiles.active=scdf \
-  --spring.datasource.url=jdbc:postgresql://localhost:5432/mydb \
-  --spring.datasource.username=myuser \
-  --spring.datasource.password=mypassword \
-  --spring.ai.ollama.embedding.model=nomic-embed-text \
-  --spring.ai.ollama.base-url=http://localhost:11434
-```
+- Java 21+
+- Maven
+- PostgreSQL with pgvector extension
+- Ollama server running with Nomic model
 
-### Example Message Flow
-- Input: Message with a String payload (text)
-- Side effect: Embedding and text persisted in Postgres/pgvector
-- After each embedding is stored, a JSON log message is published to a Rabbit queue with details of the operation
-- No output message containing the embedding is produced
+## Quick Start
 
-## Embedding Storage Log Queue
-After each embedding is stored, a JSON object is sent to the Rabbit queue (default: `embedding.log`).
-
-**Sample log message:**
-```json
-{
-  "textPreview": "This is a sample input...",
-  "embeddingSize": 1536,
-  "timestamp": "2025-05-09T22:40:01Z",
-  "status": "SUCCESS",
-  "errorMessage": null,
-  "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-}
-```
-
-## Setup
-1. Clone the repository and ensure Java 21+ and Maven are installed.
-2. Configure your Postgres instance with pgvector extension enabled.
-3. Build the project:
-   ```sh
+1. **Build the application**:
+   ```bash
    mvn clean package
    ```
 
+2. **Run with SCDF profile**:
+   ```bash
+   java -jar target/embedProc-0.0.1-SNAPSHOT.jar \
+     --spring.profiles.active=scdf \
+     --spring.datasource.url=jdbc:postgresql://localhost:5432/yourdb \
+     --spring.datasource.username=youruser \
+     --spring.datasource.password=yourpassword \
+     --spring.ai.ollama.embedding.model=nomic-embed-text \
+     --spring.ai.ollama.base-url=http://localhost:11434
+   ```
+
 ## Configuration
-Set the following properties (via `application-scdf.properties`, environment variables, or deployment properties):
+
+### Required Properties
+
+| Property | Description | Example |
+|----------|-------------|---------|
+| `spring.datasource.url` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/yourdb` |
+| `spring.datasource.username` | Database username | `youruser` |
+| `spring.datasource.password` | Database password | `yourpassword` |
+| `spring.ai.ollama.embedding.model` | Ollama model name | `nomic-embed-text` |
+| `spring.ai.ollama.base-url` | Ollama server URL | `http://localhost:11434` |
+
+### Optional Properties
+
 ```properties
-spring.datasource.url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-spring.datasource.username=${POSTGRES_USER}
-spring.datasource.password=${POSTGRES_PASSWORD}
-spring.ai.ollama.embedding.model=nomic-embed-text
-spring.ai.ollama.base-url=http://localhost:11434
+# PgVector Configuration
 spring.ai.vectorstore.pgvector.enabled=true
-spring.ai.vectorstore.pgvector.table-name=embeddings
-spring.profiles.active=scdf
+spring.ai.vectorstore.pgvector.dimensions=768
+spring.ai.vectorstore.pgvector.distance-type=COSINE_DISTANCE
+
+# Logging
+logging.level.com.baskettecase.embedProc=INFO
+logging.level.org.springframework.ai=WARN
 ```
 
-## Usage
-Run the processor with the `scdf` profile active. Example:
-```sh
-java -jar target/embedProc-0.0.1-SNAPSHOT.jar --spring.profiles.active=scdf \
-  --spring.datasource.url=jdbc:postgresql://localhost:5432/mydb \
-  --spring.datasource.username=myuser \
-  --spring.datasource.password=mypassword \
-  --spring.ai.ollama.embedding.model=nomic-embed-text \
-  --spring.ai.ollama.base-url=http://localhost:11434
-```
+## Document Processing
 
-### Example Message Flow
-- Input: Message with a String payload (text)
-- Output: Message with a List<Double> embedding payload
-- Side effect: Embedding and text persisted in Postgres/pgvector
-
-## Troubleshooting
-- All outgoing embeddings and storage events are logged.
-- Success log example:
-  ```
-  [VectorStoreService] Successfully stored embedding for text preview: 'This is a sample input...', size: 1536
-  ```
-- Error log example:
-  ```
-  [VectorStoreService] Failed to store embedding for text preview: 'This is a sample input...'. Error: <error message>
-  ```
-- For database or schema issues, see `gotchas.md`.
-
-## Contribution
-Contributions are welcome! Please open issues or pull requests for improvements, bug fixes, or new features.
-
-## Project Structure & Ignore Rules
-
-This project uses a `.gitignore` file to exclude build artifacts from version control. The `target/` directory, which contains compiled classes and other build outputs, is ignored by default. This helps keep the repository clean and prevents accidental commits of generated files.
-
-
-This project provides a Spring Cloud Data Flow (SCDF) stream processor that generates embedding vectors for input text using the Ollama Nomic model via Spring AI. It is intended for use in streaming data pipelines where you need to convert text to embeddings for downstream processing.
-
-## Features
-- Listens for text messages on an input queue (when the `scdf` profile is active)
-- Uses the Ollama Nomic model (or other supported Ollama embedding models) to generate embedding vectors
-- Converts the embedding array to a `List<Double>` for compatibility
-- Publishes the embedding vector to an output queue
-
-## Required Configuration
-
-You must provide the following configuration values, either in your `application-scdf.properties`, as environment variables, or as command-line arguments:
-
-| Property                              | Example Value                | Required | Purpose                        |
-|----------------------------------------|------------------------------|----------|--------------------------------|
-| `spring.ai.ollama.embedding.model`     | `nomic-embed-text`           | Yes      | Which embedding model to use   |
-| `spring.ai.ollama.base-url`            | `http://localhost:11434`     | If not default | Ollama server location      |
-| `spring.profiles.active`               | `scdf`                       | Yes      | Activate SCDF profile          |
-
-### Example `application-scdf.properties`
-```properties
-spring.ai.ollama.embedding.model=nomic-embed-text
-spring.ai.ollama.base-url=http://localhost:11434
-spring.profiles.active=scdf
-```
-
-### Example Command-Line Launch
-```sh
-java -jar your-app.jar \
-  --spring.profiles.active=scdf \
-  --spring.ai.ollama.embedding.model=nomic-embed-text \
-  --spring.ai.ollama.base-url=http://localhost:11434
-```
-
-### Example Environment Variables
-```sh
-export SPRING_AI_OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-export SPRING_AI_OLLAMA_BASE_URL=http://localhost:11434
-```
+- Large documents are automatically split into 1000-word chunks
+- Chunks have a 100-word overlap to maintain context
+- Each chunk is processed and stored separately
+- Progress is logged during processing
 
 ## Logging
-You can increase logging verbosity by setting (in your properties file):
-```properties
-logging.level.com.example.embeddingprocessor=DEBUG
+
+Logs include:
+- Document processing status
+- Chunk generation details
+- Storage operations
+- Error messages
+
+## Monitoring
+
+Monitor the `embedding.log` queue for operation details:
+
+```json
+{
+  "textPreview": "Sample text...",
+  "embeddingSize": 768,
+  "timestamp": "2025-05-21T12:00:00Z",
+  "status": "SUCCESS",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
-## Additional Notes
-- Input and output channel names can be set by SCDF if needed.
-- The processor is only active when the `scdf` profile is enabled.
-
 ## License
+
 MIT
