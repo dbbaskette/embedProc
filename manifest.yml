@@ -1,0 +1,41 @@
+---
+applications:
+- name: embedproc
+  random-route: true
+  path: target/embedProc-0.0.1-SNAPSHOT.jar
+  env:
+    # Application Configuration
+    SPRING_PROFILES_ACTIVE: cloud
+    JBP_CONFIG_SPRING_AUTO_RECONFIGURATION: '{enabled: false}'
+    JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 21.+ } }'
+    
+    # Database Configuration (PostgreSQL)
+    SPRING_DATASOURCE_URL: ${vcap.services.${service:postgresql}.credentials.jdbcUrl}
+    SPRING_DATASOURCE_USERNAME: ${vcap.services.${service:postgresql}.credentials.username}
+    SPRING_DATASOURCE_PASSWORD: ${vcap.services.${service:postgresql}.credentials.password}
+    
+    # OpenAI Configuration (from VCAP_SERVICES)
+    SPRING_AI_OPENAI_API_KEY: ${vcap.services.${service:openai}.credentials.api-key}
+    SPRING_AI_OPENAI_EMBEDDING_MODEL: ${vcap.services.${service:openai}.credentials.embedding-model:text-embedding-3-small}
+    
+    # JVM Configuration
+    JVM_OPTS: "-Xmx1G -Xms512m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=128m -XX:+UseCompressedOops -XX:+UseContainerSupport"
+    JAVA_OPTS: "-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true -Dfile.encoding=UTF-8"
+    
+    # Actuator Configuration
+    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,env,prometheus,metrics
+    MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+    
+  services:
+    - embed-db
+    - embed-model
+  
+    
+  instances: 1
+  memory: 2G
+  disk_quota: 2G
+  health-check-type: http
+  health-check-http-endpoint: /actuator/health
+  timeout: 180
+
+
