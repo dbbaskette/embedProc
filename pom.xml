@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.baskettecase</groupId>
 	<artifactId>embedProc</artifactId>
-	<version>0.0.4</version>
+	<version>0.0.5</version>
 	<name>embedProc</name>
 	<description>Embedding processor using Spring AI with Spring Boot and Ollama</description>
 	<url/>
@@ -73,7 +73,18 @@
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-config</artifactId>
 		</dependency>
-
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-stream-rabbit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-stream</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-stream-binder-rabbit</artifactId>
+        </dependency>
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
