@@ -83,3 +83,36 @@ The dependency is found in the `<dependencies>` section of `pom.xml`:
 
 ## Additional Notes
 - This is the preferred solution over defining the bean manually, as it leverages Spring Boot's auto-configuration and is less error-prone.
+
+## Release Management
+
+### release.sh Script
+- **Purpose**: Automates version incrementing, tagging, and GitHub releases
+- **Usage**: `./release.sh [--release VERSION] [--jar-only]`
+- **Features**:
+  - Auto-increments patch version or sets specific version
+  - Updates pom.xml version
+  - Commits and pushes changes (only if there are changes)
+  - Creates Git tags (only if tag doesn't exist)
+  - **JAR-only mode**: `--jar-only` skips version increment, just builds and pushes JAR
+  - Handles "up to date" repositories by still creating/updating GitHub releases
+  - Optionally creates GitHub releases with JAR uploads
+  - Improved error handling and user feedback
+
+### Usage Examples
+```bash
+# Auto-increment patch version and create full release
+./release.sh
+
+# Set specific version
+./release.sh --release 1.2.3
+
+# Just build and push JAR for current version (useful when up to date)
+./release.sh --jar-only
+```
+
+### Key Improvements
+- **Smart change detection**: Only commits if there are actual changes
+- **Duplicate tag protection**: Won't create tags that already exist
+- **JAR-only mode**: Perfect for when you're up to date but want to push a JAR
+- **Better GitHub CLI integration**: Checks for `gh` availability and provides helpful messages
