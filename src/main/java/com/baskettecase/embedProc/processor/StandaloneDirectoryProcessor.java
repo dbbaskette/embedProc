@@ -6,24 +6,27 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.context.annotation.Profile;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.List;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.baskettecase.embedProc.service.EmbeddingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 @Profile("standalone")
 public class StandaloneDirectoryProcessor implements CommandLineRunner {
+    
+    private static final Logger logger = LoggerFactory.getLogger(StandaloneDirectoryProcessor.class);
+    
     private final EmbeddingModel embeddingModel;
-    private final VectorStore vectorStore;
+    private final EmbeddingService embeddingService;
     private final VectorQueryProcessor vectorQueryProcessor;
     private final String queryText;
 
     @Autowired
-    public StandaloneDirectoryProcessor(EmbeddingModel embeddingModel, VectorStore vectorStore, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
+    public StandaloneDirectoryProcessor(EmbeddingModel embeddingModel, EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
         this.embeddingModel = embeddingModel;
-        this.vectorStore = vectorStore;
+        this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.queryText = queryText;
     }
@@ -51,15 +54,17 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
         try {
             String content = Files.readString(file);
             float[] embedding = embeddingModel.embed(content);
-            System.out.println("File: " + file.getFileName());
-            System.out.println("Embedding: " + java.util.Arrays.toString(embedding));
-            // Store embedding in vector store
-            Document doc = new Document(content);
-            vectorStore.add(List.of(doc));
-            System.out.println("Stored embedding in vector store for file: " + file.getFileName());
-            System.out.println("---");
+            logger.info("Processing file: {}", file.getFileName());
+            logger.debug("Embedding dimensions: {}", embedding.length);
+            
+            // Store embedding using the EmbeddingService
+            embeddingService.storeEmbedding(content);
+            logger.info("Successfully stored embedding for file: {}", file.getFileName());
+            
         } catch (IOException e) {
-            System.err.println("Failed to read file: " + file + ", error: " + e.getMessage());
+            logger.error("Failed to read file: {}, error: {}", file, e.getMessage());
+        } catch (Exception e) {
+            logger.error("Failed to process file: {}, error: {}", file, e.getMessage());
         }
     }
 }

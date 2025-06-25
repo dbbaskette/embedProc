@@ -1,21 +1,52 @@
 # Implementation Details
 
+## Architecture Overview
+
+The application now uses a layered architecture with improved error handling and monitoring:
+
+### Service Layer
+- **EmbeddingService**: Centralized service for embedding operations with retry logic and metrics
+- **VectorQueryProcessor**: Handles similarity search operations
+
+### Processor Layer  
+- **ScdfStreamProcessor**: Stream processing for SCDF deployment
+- **StandaloneDirectoryProcessor**: Batch processing for standalone mode
+
 ## Embedding Storage with pgvector
 
-Embeddings are now stored in PostgreSQL with pgvector using the Spring AI `VectorStore` interface. This is handled by the `VectorStoreService` class in the `service` package.
+Embeddings are stored in PostgreSQL with pgvector using the Spring AI `VectorStore` interface through the `EmbeddingService`.
 
-- After an embedding is generated, `VectorStoreService.saveEmbedding(text, embedding)` is called.
-- The service creates a `Document`, sets its content and embedding, and stores it using `vectorStore.add(...)`.
-- Both successful and failed storage attempts are logged.
+- The `EmbeddingService` provides centralized embedding operations with:
+  - Automatic retry on failures (up to 3 attempts)
+  - Metrics collection (success/error counters)
+  - Proper error handling and logging
+  - Batch processing capabilities
+- Both successful and failed storage attempts are logged with appropriate detail levels.
 
 **Success log example:**
 ```
-[VectorStoreService] Successfully stored embedding for text preview: 'This is a sample input...', size: 1536
+[EmbeddingService] Successfully stored embedding for text preview: 'This is a sample input...'
 ```
 **Error log example:**
 ```
-[VectorStoreService] Failed to store embedding for text preview: 'This is a sample input...'. Error: <error message>
+[EmbeddingService] Failed to store embedding for text preview: 'This is a sample input...'. Error: <error message>
 ```
+
+## Monitoring and Metrics
+
+The application now includes comprehensive monitoring:
+
+### Metrics
+- `embeddings.processed`: Counter of successfully processed embeddings
+- `embeddings.errors`: Counter of embedding processing errors
+
+### Health Checks
+- Custom health indicators for vector store connectivity
+- Actuator endpoints for monitoring application health
+
+### Retry Logic
+- Automatic retry on transient failures (3 attempts with 1-second backoff)
+- Proper error propagation for non-recoverable errors
 
 ## Logging for Embedding Output
 

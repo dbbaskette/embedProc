@@ -3,10 +3,11 @@ package com.baskettecase.embedProc.processor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import com.baskettecase.embedProc.service.EmbeddingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,16 +16,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Configuration
 @Profile("scdf")
-
 public class ScdfStreamProcessor {
-    private final VectorStore vectorStore;
+    
+    private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
+    
+    private final EmbeddingService embeddingService;
     private final VectorQueryProcessor vectorQueryProcessor;
     private final String queryText;
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
 
     @Autowired
-    public ScdfStreamProcessor(VectorStore vectorStore, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
-        this.vectorStore = vectorStore;
+    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
+        this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.queryText = queryText;
     }
@@ -92,48 +95,31 @@ public class ScdfStreamProcessor {
         return text -> {
             try {
                 if (text == null || text.trim().isEmpty()) {
-                    System.err.println("Received empty text, skipping...");
+                    logger.warn("Received empty text, skipping...");
                     return;
                 }
 
-                System.out.println("Processing document of length: " + text.length() + " characters");
+                logger.info("Processing document of length: {} characters", text.length());
                 
                 // Split the text into chunks (1000 words per chunk, 100 words overlap)
                 List<String> chunks = chunkText(text, 1000, 100);
                 
                 if (chunks.isEmpty()) {
-                    System.err.println("No chunks generated from the input text");
+                    logger.warn("No chunks generated from the input text");
                     return;
                 }
 
-                System.out.println("Generated " + chunks.size() + " chunks");
+                logger.info("Generated {} chunks", chunks.size());
                 
-                // Store each chunk in the vector store
-                int chunkCount = 0;
-                for (String chunk : chunks) {
-                    if (chunk != null && !chunk.trim().isEmpty()) {
-                        try {
-                            Document doc = new Document(chunk);
-                            vectorStore.add(List.of(doc));
-                            chunkCount++;
-                            // Add some logging for every 10 chunks to monitor progress
-                            if (chunkCount % 10 == 0) {
-                                System.out.println("Processed " + chunkCount + " chunks so far...");
-                            }
-                        } catch (Exception e) {
-                            System.err.println("Error processing chunk: " + e.getMessage());
-                            // Continue with next chunk even if one fails
-                        }
-                    }
-                }
+                // Store embeddings using the EmbeddingService
+                embeddingService.storeEmbeddings(chunks);
                 
                 // Optionally run query after embedding if queryText is set and hasn't run yet
                 if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
                     vectorQueryProcessor.runQuery(queryText, 5);
                 }
             } catch (Exception e) {
-                System.err.println("Error processing document: " + e.getMessage());
-                e.printStackTrace();
+                logger.error("Error processing document: {}", e.getMessage(), e);
                 throw new RuntimeException("Failed to process document", e);
             }
         };
