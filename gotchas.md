@@ -26,6 +26,13 @@
   - Scripts must reference the correct JAR version (currently 0.0.5)
   - Check `standalone.sh`, `manifest.yml`, and build scripts for version consistency
 
+- **Spring Boot 3.5.3 vs Spring Cloud Version Compatibility:**
+  - **Issue**: Spring Boot 3.5.3 is not compatible with Spring Cloud 2024.0.x
+  - **Error**: `Spring Boot [3.5.3] is not compatible with this Spring Cloud release train`
+  - **Solution**: Use Spring Cloud 2025.0.0 (Northfields) with Spring Boot 3.5.x
+  - **Fix Applied**: Updated `spring-cloud.version` from `2024.0.1` to `2025.0.0`
+  - **Status**: ✅ Fixed - All tests passing
+
 
 ## Application Fails to Start: Missing RestClient.Builder
 
