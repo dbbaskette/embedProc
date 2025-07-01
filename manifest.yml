@@ -2,21 +2,23 @@
 applications:
 - name: embedproc
   random-route: true
-  path: target/embedProc-0.0.5.jar
+  path: target/embedProc-1.0.0.jar
   env:
     # Application Configuration
     SPRING_PROFILES_ACTIVE: cloud
     JBP_CONFIG_SPRING_AUTO_RECONFIGURATION: '{enabled: false}'
     JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 21.+ } }'
     
+
+    
     # Database Configuration (PostgreSQL)
-    SPRING_DATASOURCE_URL: ${vcap.services.${service:postgresql}.credentials.jdbcUrl}
-    SPRING_DATASOURCE_USERNAME: ${vcap.services.${service:postgresql}.credentials.username}
-    SPRING_DATASOURCE_PASSWORD: ${vcap.services.${service:postgresql}.credentials.password}
+    SPRING_DATASOURCE_URL: ${vcap.services.embed-db.credentials.jdbcUrl}
+    SPRING_DATASOURCE_USERNAME: ${vcap.services.embed-db.credentials.user}
+    SPRING_DATASOURCE_PASSWORD: ${vcap.services.embed-db.credentials.password}
     
     # OpenAI Configuration (from VCAP_SERVICES)
-    SPRING_AI_OPENAI_API_KEY: ${vcap.services.${service:openai}.credentials.api-key}
-    SPRING_AI_OPENAI_EMBEDDING_MODEL: ${vcap.services.${service:openai}.credentials.embedding-model:text-embedding-3-small}
+    SPRING_AI_OPENAI_API_KEY: ${vcap.services.embed-model.credentials.api-key}
+    SPRING_AI_OPENAI_EMBEDDING_MODEL: ${vcap.services.embed-model.credentials.embedding-model:text-embedding-3-small}
     
     # JVM Configuration
     JVM_OPTS: "-Xmx1G -Xms512m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=128m -XX:+UseCompressedOops -XX:+UseContainerSupport"
