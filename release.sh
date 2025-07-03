@@ -97,8 +97,17 @@ get_project_info() {
     fi
     
     # Extract artifactId from pom.xml (skip parent section, get project's own artifactId)
-    # Look for artifactId that's not heavily indented (project level, not parent level)
-    local artifact_id=$(grep "^[[:space:]]*<artifactId>" pom.xml | grep -v "^[[:space:]]\{8,\}<artifactId>" | head -1 | sed 's/.*<artifactId>\(.*\)<\/artifactId>.*/\1/' | tr -d ' ')
+    # Use awk to find the first artifactId that's not within the parent tags
+    local artifact_id=$(awk '
+        /<parent>/ { in_parent=1; next }
+        /<\/parent>/ { in_parent=0; next }
+        /<artifactId>/ && !in_parent { 
+            gsub(/.*<artifactId>/, "")
+            gsub(/<\/artifactId>.*/, "")
+            print $0
+            exit
+        }
+    ' pom.xml | tr -d ' ')
     
     if [[ -z "$artifact_id" ]]; then
         print_error "Could not extract artifactId from pom.xml"
