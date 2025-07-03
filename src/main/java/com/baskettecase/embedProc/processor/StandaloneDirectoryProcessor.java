@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.baskettecase.embedProc.service.EmbeddingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.micrometer.core.instrument.Counter;
 
 @Component
 @Profile("standalone")
@@ -22,13 +23,17 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private final EmbeddingService embeddingService;
     private final VectorQueryProcessor vectorQueryProcessor;
     private final String queryText;
+    private final Counter chunksReceivedCounter;
 
     @Autowired
-    public StandaloneDirectoryProcessor(EmbeddingModel embeddingModel, EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
+    public StandaloneDirectoryProcessor(EmbeddingModel embeddingModel, EmbeddingService embeddingService, 
+                                      VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText,
+                                      Counter chunksReceivedCounter) {
         this.embeddingModel = embeddingModel;
         this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.queryText = queryText;
+        this.chunksReceivedCounter = chunksReceivedCounter;
     }
 
 
@@ -56,6 +61,9 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
             float[] embedding = embeddingModel.embed(content);
             logger.info("Processing file: {}", file.getFileName());
             logger.debug("Embedding dimensions: {}", embedding.length);
+            
+            // Increment chunks received counter (1 file = 1 chunk in standalone mode)
+            chunksReceivedCounter.increment();
             
             // Store embedding using the EmbeddingService
             embeddingService.storeEmbedding(content);

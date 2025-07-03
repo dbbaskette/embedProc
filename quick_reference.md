@@ -1,5 +1,32 @@
 # Quick Reference
 
+## Monitoring UI
+
+**Access the Web Interface:**
+- **Local Development**: `http://localhost:8080` (when using `local` profile)
+- **Cloud Deployment**: Main application URL (when using `cloud` or `scdf` profiles)
+
+**Profile Commands:**
+```bash
+# Standalone with monitoring UI
+java -jar target/embedProc-1.0.1.jar --spring.profiles.active=local
+
+# Standalone without web interface (headless)
+java -jar target/embedProc-1.0.1.jar --spring.profiles.active=standalone
+
+# Cloud/SCDF with monitoring UI
+java -jar target/embedProc-1.0.1.jar --spring.profiles.active=scdf
+```
+
+**Metrics API Endpoint:**
+- `GET /api/metrics` - Returns JSON with processing counters
+
+**Monitored Metrics:**
+- `chunksReceived` - Total chunks created from input
+- `chunksProcessed` - Successfully embedded chunks  
+- `chunksErrored` - Failed processing attempts
+- `successRate` - Processing success percentage
+
 ## pgvector Integration (Spring AI)
 
 **Required Environment Variables / Properties:**

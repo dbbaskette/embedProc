@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>embedProc Monitor</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header img {
+            max-width: 150px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+        
+        .metrics-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .metric-label {
+            font-size: 1.1em;
+            color: #7f8c8d;
+            margin: 0;
+        }
+        
+        .chunks-received .metric-value { color: #3498db; }
+        .chunks-processed .metric-value { color: #27ae60; }
+        .chunks-errored .metric-value { color: #e74c3c; }
+        .success-rate .metric-value { color: #9b59b6; }
+        
+        .success-rate .metric-value::after {
+            content: '%';
+            font-size: 0.7em;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online { background-color: #27ae60; }
+        .status-offline { background-color: #e74c3c; }
+        
+        .last-updated {
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .refresh-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+        
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="images/embedProc.jpg" alt="embedProc Logo">
+        <h1>embedProc</h1>
+        <p><span id="status-indicator" class="status-indicator status-offline"></span>Text Embedding Monitor</p>
+    </div>
+    
+    <div class="metrics-container">
+        <div class="metric-card chunks-received">
+            <div class="metric-value" id="chunks-received">--</div>
+            <p class="metric-label">Chunks Received</p>
+        </div>
+        
+        <div class="metric-card chunks-processed">
+            <div class="metric-value" id="chunks-processed">--</div>
+            <p class="metric-label">Chunks Processed</p>
+        </div>
+        
+        <div class="metric-card chunks-errored">
+            <div class="metric-value" id="chunks-errored">--</div>
+            <p class="metric-label">Chunks Errored</p>
+        </div>
+        
+        <div class="metric-card success-rate">
+            <div class="metric-value" id="success-rate">--</div>
+            <p class="metric-label">Success Rate</p>
+        </div>
+    </div>
+    
+    <div class="last-updated">
+        <button class="refresh-btn" onclick="loadMetrics()">Refresh Now</button>
+        <div style="margin-top: 10px;">
+            Last updated: <span id="last-updated">Never</span>
+        </div>
+    </div>
+
+    <script>
+        let isOnline = false;
+        
+        function updateStatus(online) {
+            isOnline = online;
+            const indicator = document.getElementById('status-indicator');
+            indicator.className = `status-indicator ${online ? 'status-online' : 'status-offline'}`;
+        }
+        
+        function formatNumber(num) {
+            if (num === undefined || num === null) return '--';
+            return num.toLocaleString();
+        }
+        
+        function formatPercentage(num) {
+            if (num === undefined || num === null || isNaN(num)) return '--';
+            return Math.round(num * 100) / 100;
+        }
+        
+        function loadMetrics() {
+            fetch('/api/metrics')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    updateStatus(true);
+                    
+                    document.getElementById('chunks-received').textContent = formatNumber(data.chunksReceived);
+                    document.getElementById('chunks-processed').textContent = formatNumber(data.chunksProcessed);
+                    document.getElementById('chunks-errored').textContent = formatNumber(data.chunksErrored);
+                    document.getElementById('success-rate').textContent = formatPercentage(data.successRate);
+                    
+                    document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+                })
+                .catch(error => {
+                    console.error('Error loading metrics:', error);
+                    updateStatus(false);
+                });
+        }
+        
+        // Load metrics on page load
+        loadMetrics();
+        
+        // Auto-refresh every 5 seconds
+        setInterval(loadMetrics, 5000);
+    </script>
+</body>
+</html>

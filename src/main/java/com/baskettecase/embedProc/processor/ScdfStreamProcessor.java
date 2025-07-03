@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.micrometer.core.instrument.Counter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,12 +25,15 @@ public class ScdfStreamProcessor {
     private final VectorQueryProcessor vectorQueryProcessor;
     private final String queryText;
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
+    private final Counter chunksReceivedCounter;
 
     @Autowired
-    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
+    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, 
+                              @Value("${app.query.text:}") String queryText, Counter chunksReceivedCounter) {
         this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.queryText = queryText;
+        this.chunksReceivedCounter = chunksReceivedCounter;
     }
 
     private List<String> chunkText(String text, int chunkSize, int overlap) {
@@ -110,6 +114,9 @@ public class ScdfStreamProcessor {
                 }
 
                 logger.info("Generated {} chunks", chunks.size());
+                
+                // Increment chunks received counter
+                chunksReceivedCounter.increment(chunks.size());
                 
                 // Store embeddings using the EmbeddingService
                 embeddingService.storeEmbeddings(chunks);

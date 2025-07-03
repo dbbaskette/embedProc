@@ -1,10 +1,12 @@
 package com.baskettecase.embedProc.processor;
 
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.SearchRequest;
 
 @Component
+@Profile({"scdf", "standalone", "cloud"})  // Exclude from local profile
 public class VectorQueryProcessor {
     private final VectorStore vectorStore;
 

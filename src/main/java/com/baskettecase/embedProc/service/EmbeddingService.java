@@ -3,6 +3,7 @@ package com.baskettecase.embedProc.service;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import io.micrometer.core.instrument.Counter;
 import java.util.List;
 
 @Service
+@Profile({"scdf", "standalone", "cloud"})  // Exclude from local profile
 public class EmbeddingService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmbeddingService.class);

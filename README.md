@@ -23,7 +23,8 @@ A high-performance text embedding processor built with **Spring AI** that suppor
 - **📊 Smart Document Processing**: Automatic chunking with configurable overlap
 - **🔁 Resilient Operations**: Built-in retry mechanisms and error handling
 - **📈 Observability**: Metrics collection and comprehensive logging
-- **🔒 Cloud-Ready**: Cloud Foundry and Kubernetes deployment support
+- **�️ Monitoring UI**: Web-based monitoring interface with real-time metrics
+- **�🔒 Cloud-Ready**: Cloud Foundry and Kubernetes deployment support
 
 ## 📋 Prerequisites
 
@@ -96,6 +97,25 @@ java -jar target/embedProc-0.0.5.jar \
   --spring.profiles.active=standalone,local
 ```
 
+### 🖥️ Local Mode with Monitoring UI
+
+**Use Case**: Same as standalone but with web-based monitoring interface.
+
+#### Run with UI
+```bash
+java -jar target/embedProc-1.0.1.jar \
+  --spring.profiles.active=local
+```
+
+Then open your browser to: **http://localhost:8080**
+
+The monitoring UI shows:
+- **Chunks Received**: Total text chunks created from input
+- **Chunks Processed**: Successfully embedded chunks
+- **Chunks Errored**: Failed processing attempts  
+- **Success Rate**: Processing success percentage
+- **Real-time Updates**: Auto-refreshes every 5 seconds
+
 ### ☁️ SCDF Mode (Stream Processing)
 
 **Use Case**: Process streaming data in Spring Cloud Data Flow using OpenAI.
@@ -132,6 +152,12 @@ curl -X POST http://localhost:9000 \
   -d "Your text to embed and store"
 ```
 
+### 🌐 Cloud Mode with Monitoring UI
+
+**Use Case**: Stream processing with web monitoring interface.
+
+The monitoring UI is automatically available when deployed to cloud environments with the `cloud` or `scdf` profiles. Access it at the application's main URL.
+
 ## ⚙️ Configuration Reference
 
 ### Core Properties
@@ -143,14 +169,23 @@ curl -X POST http://localhost:9000 \
 | `spring.datasource.username` | Database username | - | Yes |
 | `spring.datasource.password` | Database password | - | Yes |
 
-### Ollama Configuration (Standalone)
+### Profile Overview
+
+| Profile | Web UI | Processing Mode | Use Case |
+|---------|--------|----------------|----------|
+| `standalone` | ❌ | Directory batch | Headless file processing |
+| `local` | ✅ | Directory batch | Local development with monitoring |
+| `scdf` | ✅ | Stream processing | SCDF deployment |
+| `cloud` | ✅ | Stream processing | Cloud Foundry deployment |
+
+### Ollama Configuration (Standalone/Local)
 
 | Property | Description | Default |
 |----------|-------------|---------|
 | `spring.ai.ollama.base-url` | Ollama server URL | `http://localhost:11434` |
 | `spring.ai.ollama.embedding.model` | Model name | `nomic-embed-text` |
 
-### OpenAI Configuration (SCDF)
+### OpenAI Configuration (SCDF/Cloud)
 
 | Property | Description | Default |
 |----------|-------------|---------|
@@ -166,7 +201,7 @@ curl -X POST http://localhost:9000 \
 | `spring.ai.vectorstore.pgvector.table-name` | Table name | `embeddings` |
 | `spring.ai.vectorstore.pgvector.initialize-schema` | Auto-create schema | `true` |
 
-### Directory Configuration (Standalone)
+### Directory Configuration (Standalone/Local)
 
 | Property | Description | Default |
 |----------|-------------|---------|
@@ -195,9 +230,16 @@ curl -X POST http://localhost:9000 \
 
 ## 📈 Monitoring & Observability
 
+### Web Monitoring UI
+- **Real-time Metrics**: Processing counters with auto-refresh
+- **Visual Status**: Online/offline indicators
+- **Success Tracking**: Processing success rates
+- **Responsive Design**: Works on desktop and mobile
+
 ### Metrics
-- `embedding.processed.count` - Successfully processed embeddings
-- `embedding.error.count` - Failed embedding attempts
+- `chunks.received` - Total text chunks created from input
+- `embeddings.processed` - Successfully processed embeddings
+- `embeddings.errors` - Failed embedding attempts
 
 ### Logging
 ```properties
@@ -229,7 +271,10 @@ src/
 ├── main/java/com/baskettecase/embedProc/
 │   ├── EmbedProcApplication.java          # Main application
 │   ├── config/ApplicationConfig.java     # Configuration beans
-│   ├── service/EmbeddingService.java     # Core embedding logic
+│   ├── service/
+│   │   ├── EmbeddingService.java         # Core embedding logic
+│   │   └── MonitorService.java           # Monitoring metrics
+│   ├── controller/MonitorController.java  # Web UI controller
 │   └── processor/
 │       ├── StandaloneDirectoryProcessor.java  # Standalone mode
 │       ├── ScdfStreamProcessor.java           # SCDF mode
@@ -237,7 +282,10 @@ src/
 └── main/resources/
     ├── application.properties                 # Base configuration
     ├── application-standalone.properties      # Standalone config
-    └── application-scdf.properties           # SCDF config
+    ├── application-local.properties           # Local with UI config
+    ├── application-scdf.properties           # SCDF config
+    └── static/
+        └── index.html                         # Monitoring UI
 ```
 
 ## 🚀 Deployment Examples

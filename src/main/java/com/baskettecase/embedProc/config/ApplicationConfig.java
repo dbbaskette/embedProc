@@ -26,4 +26,11 @@ public class ApplicationConfig {
                 .description("Number of embedding processing errors")
                 .register(meterRegistry);
     }
+
+    @Bean
+    public Counter chunksReceivedCounter(MeterRegistry meterRegistry) {
+        return Counter.builder("chunks.received")
+                .description("Number of text chunks received for processing")
+                .register(meterRegistry);
+    }
 } 
