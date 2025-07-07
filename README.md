@@ -11,14 +11,14 @@
 
 ---
 
-A high-performance text embedding processor built with **Spring AI** that supports both **standalone** and **Spring Cloud Data Flow (SCDF)** deployment modes. Generate and store text embeddings using multiple AI providers with PostgreSQL and pgvector for efficient vector operations.
+A high-performance text embedding processor built with **Spring AI** that supports both **standalone** and **cloud** deployment modes. Generate and store text embeddings using multiple AI providers with PostgreSQL and pgvector for efficient vector operations.
 
 ## 🚀 Key Features
 
-- **🔄 Dual Deployment Modes**: Standalone directory processing or SCDF stream processing
+- **🔄 Dual Deployment Modes**: Standalone directory processing or cloud stream processing
 - **🤖 Multiple AI Providers**: 
   - **Ollama** (local inference) for standalone mode
-  - **OpenAI** for cloud/SCDF deployments
+  - **OpenAI** for cloud deployments
 - **💾 Vector Storage**: PostgreSQL with pgvector extension for similarity search
 - **📊 Smart Document Processing**: Automatic chunking with configurable overlap
 - **🔁 Resilient Operations**: Built-in retry mechanisms and error handling
@@ -31,7 +31,7 @@ A high-performance text embedding processor built with **Spring AI** that suppor
 - **Maven 3.6.3+**
 - **PostgreSQL 14+** with pgvector extension
 - **Ollama server** (for standalone mode)
-- **OpenAI API key** (for SCDF/cloud mode)
+- **OpenAI API key** (for cloud mode)
 
 ## 🛠️ Quick Start
 
@@ -96,11 +96,11 @@ java -jar target/embedProc-0.0.5.jar \
   --spring.profiles.active=standalone,local
 ```
 
-### ☁️ SCDF Mode (Stream Processing)
+### ☁️ Cloud Mode (Stream Processing)
 
 **Use Case**: Process streaming data in Spring Cloud Data Flow using OpenAI.
 
-#### Deploy to SCDF
+#### Deploy to Cloud/SCDF
 ```bash
 # Register the application
 app register --name embed-proc --type processor \
@@ -114,7 +114,7 @@ stream create --name embedding-pipeline \
 
 #### Configuration Properties
 ```properties
-# OpenAI API Key (set via environment or SCDF deployment properties)
+# OpenAI API Key (set via environment or cloud deployment properties)
 spring.ai.openai.api-key=your-openai-api-key
 spring.ai.openai.embedding.options.model=text-embedding-3-small
 
@@ -150,7 +150,7 @@ curl -X POST http://localhost:9000 \
 | `spring.ai.ollama.base-url` | Ollama server URL | `http://localhost:11434` |
 | `spring.ai.ollama.embedding.model` | Model name | `nomic-embed-text` |
 
-### OpenAI Configuration (SCDF)
+### OpenAI Configuration (Cloud)
 
 | Property | Description | Default |
 |----------|-------------|---------|
@@ -232,12 +232,12 @@ src/
 │   ├── service/EmbeddingService.java     # Core embedding logic
 │   └── processor/
 │       ├── StandaloneDirectoryProcessor.java  # Standalone mode
-│       ├── ScdfStreamProcessor.java           # SCDF mode
+│       ├── ScdfStreamProcessor.java           # Cloud mode
 │       └── VectorQueryProcessor.java          # Query operations
 └── main/resources/
     ├── application.properties                 # Base configuration
     ├── application-standalone.properties      # Standalone config
-    └── application-scdf.properties           # SCDF config
+    └── application-cloud.properties          # Cloud config
 ```
 
 ## 🚀 Deployment Examples
@@ -275,7 +275,7 @@ spec:
         - containerPort: 8080
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "scdf"
+          value: "cloud"
         - name: SPRING_AI_OPENAI_API_KEY
           valueFrom:
             secretKeyRef:

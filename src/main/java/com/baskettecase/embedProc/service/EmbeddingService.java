@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Profile;
 import java.util.List;
 
 @Service
-@Profile({"scdf", "standalone", "cloud"})  // Exclude from local profile
+@Profile({"standalone", "cloud"})  // Exclude from local profile
 public class EmbeddingService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmbeddingService.class);

@@ -9,7 +9,7 @@
 - `POSTGRES_USER` (your username)
 - `POSTGRES_PASSWORD` (your password)
 
-**Spring Boot Properties (can be set in application-scdf.properties):**
+**Spring Boot Properties (can be set in application-cloud.properties):**
 ```properties
 spring.datasource.url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
 spring.datasource.username=${POSTGRES_USER}

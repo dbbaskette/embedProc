@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Configuration
-@Profile("scdf")
+@Profile("cloud")
 public class ScdfStreamProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
