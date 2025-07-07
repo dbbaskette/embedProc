@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.baskettecase</groupId>
 	<artifactId>embedProc</artifactId>
-	<version>1.0.1</version>
+	<version>1.0.6</version>
 	<name>embedProc</name>
 	<description>Embedding processor using Spring AI with Spring Boot and Ollama</description>
 	<url/>
@@ -46,6 +46,10 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.ai</groupId>

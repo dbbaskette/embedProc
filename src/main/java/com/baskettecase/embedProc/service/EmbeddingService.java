@@ -9,10 +9,12 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.micrometer.core.instrument.Counter;
+import org.springframework.context.annotation.Profile;
 
 import java.util.List;
 
 @Service
+@Profile({"standalone", "cloud"})  // Exclude from local profile
 public class EmbeddingService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmbeddingService.class);
@@ -20,14 +22,17 @@ public class EmbeddingService {
     private final VectorStore vectorStore;
     private final Counter embeddingProcessedCounter;
     private final Counter embeddingErrorCounter;
+    private final MonitorService monitorService;
 
     @Autowired
     public EmbeddingService(VectorStore vectorStore, 
                            Counter embeddingProcessedCounter,
-                           Counter embeddingErrorCounter) {
+                           Counter embeddingErrorCounter,
+                           @Autowired(required = false) MonitorService monitorService) {
         this.vectorStore = vectorStore;
         this.embeddingProcessedCounter = embeddingProcessedCounter;
         this.embeddingErrorCounter = embeddingErrorCounter;
+        this.monitorService = monitorService;
     }
 
     @Retryable(value = {Exception.class}, maxAttempts = 3, backoff = @Backoff(delay = 1000))
@@ -42,11 +47,23 @@ public class EmbeddingService {
             vectorStore.add(List.of(doc));
             
             embeddingProcessedCounter.increment();
+            
+            // Update monitor service if available
+            if (monitorService != null) {
+                monitorService.incrementProcessedChunks(1);
+            }
+            
             logger.debug("Successfully stored embedding for text preview: '{}'", 
                     text.substring(0, Math.min(text.length(), 50)) + "...");
             
         } catch (Exception e) {
             embeddingErrorCounter.increment();
+            
+            // Update monitor service if available
+            if (monitorService != null) {
+                monitorService.incrementErrors(1);
+            }
+            
             logger.error("Failed to store embedding for text preview: '{}'. Error: {}", 
                     text != null ? text.substring(0, Math.min(text.length(), 50)) + "..." : "null", 
                     e.getMessage());
@@ -59,6 +76,11 @@ public class EmbeddingService {
         if (texts == null || texts.isEmpty()) {
             logger.warn("Attempted to store empty text list, skipping");
             return;
+        }
+
+        // Update total chunks count if monitor service is available
+        if (monitorService != null) {
+            monitorService.incrementTotalChunks(texts.size());
         }
 
         int successCount = 0;

@@ -1,5 +1,17 @@
 # Gotchas
 
+## Profile Configuration Changes
+
+- **SCDF Profile Removed:**
+  - The `application-scdf.properties` file has been removed
+  - All SCDF functionality is now consolidated into the `cloud` profile
+  - Java components updated to use `@Profile("cloud")` instead of `@Profile("scdf")`
+  - Update deployment configurations to use `--spring.profiles.active=cloud` instead of `scdf`
+
+- **Database Name Update:**
+  - Standalone database name changed from `scdf-db` to `embedproc-db`
+  - Update your local PostgreSQL setup if using the standalone profile
+
 ## pgvector Storage Issues
 
 - **Database Connection Failure:**

@@ -9,8 +9,22 @@ The application now uses a layered architecture with improved error handling and
 - **VectorQueryProcessor**: Handles similarity search operations
 
 ### Processor Layer  
-- **ScdfStreamProcessor**: Stream processing for SCDF deployment
+- **ScdfStreamProcessor**: Stream processing for cloud deployment
 - **StandaloneDirectoryProcessor**: Batch processing for standalone mode
+
+## Profile Configuration
+
+The application supports multiple deployment profiles:
+
+### Available Profiles
+- **standalone**: Local processing with Ollama and file system I/O
+- **cloud**: Cloud/SCDF deployment with OpenAI and streaming
+- **local**: Development mode with monitoring UI
+
+### Profile Consolidation
+- **application-cloud.properties**: Combined configuration for both cloud and SCDF deployments
+- **application-scdf.properties**: Removed (consolidated into cloud profile)
+- All Java components updated to use "cloud" profile instead of "scdf"
 
 ## Embedding Storage with pgvector
 
