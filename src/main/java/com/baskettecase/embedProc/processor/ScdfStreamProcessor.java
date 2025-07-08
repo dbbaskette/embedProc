@@ -12,11 +12,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
+import jakarta.annotation.PostConstruct;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 @Configuration
 public class ScdfStreamProcessor {
@@ -45,6 +49,11 @@ public class ScdfStreamProcessor {
         this.overlapWords = overlapWords;
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
+    }
+
+    @PostConstruct
+    public void logBeanCreation() {
+        logger.info("ScdfStreamProcessor bean created.");
     }
 
     private List<String> chunkText(String text, int chunkSize, int overlap) {
@@ -240,7 +249,19 @@ public class ScdfStreamProcessor {
 
     private String extractFileUrl(String message) {
         try {
-            // Try to parse as JSON first
+            // Handle the specific format from textProc: "Processed file written to HDFS: http://..."
+            if (message != null && message.trim().startsWith("Processed file written to HDFS:")) {
+                String fileUrl = message.trim().substring("Processed file written to HDFS:".length()).trim();
+                
+                if (!fileUrl.isEmpty()) {
+                    // Fix WebHDFS URL encoding and add operation parameter
+                    fileUrl = fixWebHdfsUrl(fileUrl);
+                    logger.info("Extracted file URL: {}", fileUrl);
+                    return fileUrl;
+                }
+            }
+            
+            // Try to parse as JSON first (fallback for other formats)
             JsonNode jsonNode = objectMapper.readTree(message);
             
             // Look for common field names that might contain the file URL
@@ -266,27 +287,12 @@ public class ScdfStreamProcessor {
             // Fix WebHDFS URL encoding and add operation parameter
             fileUrl = fixWebHdfsUrl(fileUrl);
             
-            // Reduced logging to prevent log rate limits
             return fileUrl;
             
         } catch (Exception e) {
-            logger.warn("Failed to parse message as JSON, checking for plain text format: {}", e.getMessage());
+            logger.warn("Failed to parse message as expected format: {}", e.getMessage());
             
-            // Handle new plain text format: "Processed file: http://..."
-            if (message != null && message.trim().startsWith("Processed file:")) {
-                String fileUrl = message.trim().substring("Processed file:".length()).trim();
-                
-                if (!fileUrl.isEmpty()) {
-                    // Fix WebHDFS URL encoding and add operation parameter
-                    fileUrl = fixWebHdfsUrl(fileUrl);
-                    
-                    // Reduced logging to prevent log rate limits
-                    return fileUrl;
-                }
-            }
-            
-            // If JSON parsing fails and it's not the expected plain text format, 
-            // assume the message is the content itself
+            // If all parsing fails, assume the message is the content itself
             logger.warn("Message is not in expected format, treating as direct content");
             return null;
         }
@@ -332,76 +338,54 @@ public class ScdfStreamProcessor {
 
     @Bean
     @Profile("cloud")
-    public Consumer<Object> embedProc() {
+    public Consumer<String> embedProc() {
+        logger.info("Creating embedProc function bean");
         return message -> {
             try {
-                // Convert message to string, handling both String and byte[] types
-                String messageStr;
-                if (message instanceof String) {
-                    messageStr = (String) message;
-                } else if (message instanceof byte[]) {
-                    messageStr = new String((byte[]) message, java.nio.charset.StandardCharsets.UTF_8);
-                    // Reduced logging to prevent log rate limits
-                } else {
-                    messageStr = message.toString();
-                    // Reduced logging to prevent log rate limits
-                }
-                
-                if (messageStr == null || messageStr.trim().isEmpty()) {
+                if (message == null || message.trim().isEmpty()) {
                     logger.warn("Received empty message, skipping...");
                     return;
                 }
 
-                // Reduced logging to prevent log rate limits
-                
                 // Extract file URL from the message
-                String fileUrl = extractFileUrl(messageStr);
-                String fileContent;
-                
-                if (fileUrl != null) {
-                    // Fetch the file content from the URL
-                    fileContent = fetchFileContent(fileUrl);
-                } else {
-                    // If no URL was extracted, treat the message as direct content
-                    fileContent = messageStr;
-                    // Reduced logging to prevent log rate limits
-                }
-                
-                if (fileContent == null || fileContent.trim().isEmpty()) {
-                    logger.warn("No file content to process, skipping...");
+                String fileUrl = extractFileUrl(message);
+                if (fileUrl == null || fileUrl.isEmpty()) {
+                    logger.warn("No valid file URL found in message: {}", message);
                     return;
                 }
 
-                // Reduced logging to prevent log rate limits
+                // Fetch file content
+                String fileContent = fetchFileContent(fileUrl);
+                if (fileContent == null || fileContent.isEmpty()) {
+                    logger.warn("No content found in file: {}", fileUrl);
+                    return;
+                }
+
+                logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
                 
-                // Split the text into chunks (2000 characters per chunk, 200 characters overlap)
-                // Optimized for performance: larger chunks = fewer API calls
+                // Enhanced chunking with semantic boundaries
                 List<String> chunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
+                logger.info("Created {} chunks from file: {}", chunks.size(), fileUrl);
                 
                 if (chunks.isEmpty()) {
-                    logger.warn("No chunks generated from the file content");
+                    logger.warn("No chunks generated from the input text");
                     return;
                 }
 
-                // Reduced logging to prevent log rate limits
-                
-                // Store embeddings using batch processing for better performance
+                // Store embeddings using the EmbeddingService
                 embeddingService.storeEmbeddings(chunks);
                 
                 // Optionally run query after embedding if queryText is set and hasn't run yet
-                if (queryText != null && !queryText.trim().isEmpty() && queryRun.compareAndSet(false, true)) {
-                    logger.info("Running vector query: {}", queryText);
+                if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
                     vectorQueryProcessor.runQuery(queryText, 5);
                 }
-                
             } catch (Exception e) {
-                logger.error("Error processing message: {}", e.getMessage(), e);
-                throw e;
+                logger.error("Error processing document: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to process document", e);
             }
         };
     }
 }
-
 @Configuration
 @Profile("cloud")
 class ScdfStreamProcessorConfig {
@@ -419,3 +403,4 @@ class ScdfStreamProcessorConfig {
                                      maxWordsPerChunk, overlapWords, objectMapper, restTemplate);
     }
 }
+
