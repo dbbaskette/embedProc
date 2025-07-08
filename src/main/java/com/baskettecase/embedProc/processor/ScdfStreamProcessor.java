@@ -19,7 +19,6 @@ import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Configuration
-@Profile("cloud")
 public class ScdfStreamProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
@@ -330,6 +329,7 @@ public class ScdfStreamProcessor {
     }
 
     @Bean
+    @Profile("cloud")
     public Consumer<Object> embedProc() {
         return message -> {
             try {
@@ -397,5 +397,23 @@ public class ScdfStreamProcessor {
                 throw e;
             }
         };
+    }
+}
+
+@Configuration
+@Profile("cloud")
+class ScdfStreamProcessorConfig {
+    
+    @Bean
+    public ScdfStreamProcessor scdfStreamProcessor(
+            EmbeddingService embeddingService, 
+            VectorQueryProcessor vectorQueryProcessor,
+            @Value("${app.query.text:}") String queryText,
+            @Value("${app.chunking.max-words-per-chunk:300}") int maxWordsPerChunk,
+            @Value("${app.chunking.overlap-words:30}") int overlapWords,
+            ObjectMapper objectMapper, 
+            RestTemplate restTemplate) {
+        return new ScdfStreamProcessor(embeddingService, vectorQueryProcessor, queryText, 
+                                     maxWordsPerChunk, overlapWords, objectMapper, restTemplate);
     }
 }
