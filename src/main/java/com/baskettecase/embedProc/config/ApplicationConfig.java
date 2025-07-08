@@ -31,6 +31,17 @@ public class ApplicationConfig {
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        RestTemplate restTemplate = new RestTemplate();
+        
+        // Configure to follow redirects (important for WebHDFS)
+        restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(java.net.HttpURLConnection connection, String httpMethod) throws java.io.IOException {
+                super.prepareConnection(connection, httpMethod);
+                connection.setInstanceFollowRedirects(true);
+            }
+        });
+        
+        return restTemplate;
     }
 } 

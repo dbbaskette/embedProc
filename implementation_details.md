@@ -98,6 +98,16 @@ The processor supports multiple message formats:
 - **Plain URL**: Direct URL string
 - **Direct Content**: Raw file content (fallback)
 
+### URL Type Support
+The processor handles different types of URLs:
+- **Regular HTTP URLs**: Standard web URLs for file downloads
+- **WebHDFS URLs**: Specialized handling for Hadoop Distributed File System web interface
+  - Detects URLs containing `/webhdfs/`
+  - Fixes double-encoding issues (`%2520` → `%20`) while preserving valid URL encoding
+  - Adds required `?op=OPEN` parameter for WebHDFS operations
+  - Uses appropriate headers and redirect handling
+  - Supports WebHDFS authentication and operations
+
 ## Logging for Embedding Output
 
 The `ScdfStreamProcessor` logs every embedding sent to the output queue. Each log entry includes a preview of the input text, the embedding size, and the first five values of the embedding. This allows you to verify that embeddings are being placed on the RabbitMQ queue.

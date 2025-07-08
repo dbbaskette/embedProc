@@ -101,5 +101,12 @@ After adding, rebuild your project.
   - **New Features**: 
     - JSON message parsing with multiple field name support (`fileUrl`, `url`, `file_url`, `content`)
     - HTTP file content fetching using RestTemplate
+    - WebHDFS URL detection and specialized handling
     - Fallback to direct content processing for backward compatibility
   - **Dependencies**: Added `RestTemplate` bean to `ApplicationConfig` for HTTP requests
+  - **WebHDFS Support**: Automatic detection of WebHDFS URLs with proper headers and redirect handling
+  - **WebHDFS URL Fixes**: 
+    - Handles double-encoding issues (`%2520` → `%20`) while preserving valid URL encoding
+    - Automatically adds required `?op=OPEN` parameter
+    - Preserves spaces as `%20` for WebHDFS compatibility
+    - Only fixes double-encoded parts, doesn't decode valid URL encoding

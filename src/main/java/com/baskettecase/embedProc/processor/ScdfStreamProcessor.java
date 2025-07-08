@@ -103,19 +103,57 @@ public class ScdfStreamProcessor {
     private String fetchFileContent(String fileUrl) {
         try {
             logger.info("Fetching file content from URL: {}", fileUrl);
-            ResponseEntity<String> response = restTemplate.getForEntity(fileUrl, String.class);
             
-            if (response.getStatusCode().is2xxSuccessful()) {
-                String content = response.getBody();
-                logger.info("Successfully fetched file content, length: {} characters", content != null ? content.length() : 0);
-                return content;
+            // Check if this is a WebHDFS URL
+            boolean isWebHdfs = fileUrl.contains("/webhdfs/");
+            
+            if (isWebHdfs) {
+                logger.info("Detected WebHDFS URL, using specialized handling");
+                return fetchWebHdfsContent(fileUrl);
             } else {
-                logger.error("Failed to fetch file content from URL: {}. Status: {}", fileUrl, response.getStatusCode());
-                throw new RuntimeException("Failed to fetch file content, HTTP status: " + response.getStatusCode());
+                // Regular HTTP URL handling
+                ResponseEntity<String> response = restTemplate.getForEntity(fileUrl, String.class);
+                
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    String content = response.getBody();
+                    logger.info("Successfully fetched file content, length: {} characters", content != null ? content.length() : 0);
+                    return content;
+                } else {
+                    logger.error("Failed to fetch file content from URL: {}. Status: {}", fileUrl, response.getStatusCode());
+                    throw new RuntimeException("Failed to fetch file content, HTTP status: " + response.getStatusCode());
+                }
             }
         } catch (Exception e) {
             logger.error("Error fetching file content from URL: {}. Error: {}", fileUrl, e.getMessage());
             throw new RuntimeException("Failed to fetch file content from URL: " + fileUrl, e);
+        }
+    }
+
+    private String fetchWebHdfsContent(String webHdfsUrl) {
+        try {
+            logger.info("Fetching content from WebHDFS URL: {}", webHdfsUrl);
+            
+            // WebHDFS requires specific headers and may need to follow redirects
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "embedProc/1.0");
+            
+            // Create HTTP entity with headers
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+            
+            // Make the request
+            ResponseEntity<String> response = restTemplate.exchange(webHdfsUrl, org.springframework.http.HttpMethod.GET, entity, String.class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                String content = response.getBody();
+                logger.info("Successfully fetched WebHDFS content, length: {} characters", content != null ? content.length() : 0);
+                return content;
+            } else {
+                logger.error("Failed to fetch WebHDFS content. Status: {}, Response: {}", response.getStatusCode(), response.getBody());
+                throw new RuntimeException("Failed to fetch WebHDFS content, HTTP status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            logger.error("Error fetching WebHDFS content from URL: {}. Error: {}", webHdfsUrl, e.getMessage());
+            throw new RuntimeException("Failed to fetch WebHDFS content from URL: " + webHdfsUrl, e);
         }
     }
 
@@ -144,13 +182,54 @@ public class ScdfStreamProcessor {
                 throw new RuntimeException("No file URL found in message");
             }
             
-            logger.info("Extracted file URL from message: {}", fileUrl);
+            // Fix WebHDFS URL encoding and add operation parameter
+            fileUrl = fixWebHdfsUrl(fileUrl);
+            
+            logger.info("Extracted and fixed file URL from message: {}", fileUrl);
             return fileUrl;
             
         } catch (Exception e) {
             logger.warn("Failed to parse message as JSON, treating as direct content: {}", e.getMessage());
             // If JSON parsing fails, assume the message is the content itself
             return null;
+        }
+    }
+
+    private String fixWebHdfsUrl(String url) {
+        try {
+            // Check if this is a WebHDFS URL
+            if (url.contains("/webhdfs/")) {
+                logger.info("Fixing WebHDFS URL: {}", url);
+                
+                // Handle double-encoding but preserve URL encoding for WebHDFS
+                String processedUrl = url;
+                
+                // Check for double-encoding (e.g., %2520 instead of %20)
+                if (url.contains("%25")) {
+                    // Decode only the double-encoded parts
+                    processedUrl = url.replace("%25", "%");
+                    logger.info("Fixed double-encoding: {}", processedUrl);
+                }
+                
+                // Remove any existing query parameters
+                String baseUrl = processedUrl;
+                if (processedUrl.contains("?")) {
+                    baseUrl = processedUrl.substring(0, processedUrl.indexOf("?"));
+                }
+                
+                // Add the required WebHDFS operation parameter
+                String fixedUrl = baseUrl + "?op=OPEN";
+                logger.info("Fixed WebHDFS URL: {}", fixedUrl);
+                
+                return fixedUrl;
+            } else {
+                // Not a WebHDFS URL, return as-is
+                return url;
+            }
+        } catch (Exception e) {
+            logger.error("Error fixing WebHDFS URL: {}. Error: {}", url, e.getMessage());
+            // Return original URL if fixing fails
+            return url;
         }
     }
 
