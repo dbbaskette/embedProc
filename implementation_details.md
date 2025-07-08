@@ -80,14 +80,49 @@ The application now includes comprehensive monitoring:
 When running in SCDF mode, the application:
 
 1. **Receives Message**: Gets JSON message containing file URL from the input queue (`textproc-embedproc`)
-2. **Extracts File URL**: Parses JSON message to extract the file URL (supports `fileUrl`, `url`, `file_url` fields)
+2. **Extracts File URL**: Parses JSON message to extract the file URL (supports `fileUrl`, `url`, `file_url`, `content` fields)
 3. **Fetches File Content**: Downloads the file content from the URL using RestTemplate
-4. **Chunks Text**: Splits large documents into 1000-word chunks with 100-word overlap
+4. **Chunks Text**: Splits large documents using enhanced semantic chunking with configurable parameters
 5. **Generates Embeddings**: Creates embeddings for each chunk using the configured AI model
 6. **Stores Embeddings**: Saves embeddings to PostgreSQL with pgvector
 7. **Logs Progress**: Records processing metrics and sends to metrics queue
 
 The `ScdfStreamProcessor.embedProc()` function is the entry point that processes each message from the queue.
+
+### Enhanced Text Chunking Strategy
+
+The application now uses an enhanced chunking strategy that implements the recommended best practices:
+
+#### Semantic Chunking
+- **Paragraph-based splitting**: Text is first split on paragraph boundaries (`\n\n`)
+- **Natural boundaries**: Preserves semantic meaning by keeping paragraphs intact when possible
+- **Context preservation**: Maintains document structure and flow
+
+#### Configurable Chunk Sizes
+- **Default chunk size**: 300 words (configurable via `app.chunking.max-words-per-chunk`)
+- **Overlap**: 30 words (configurable via `app.chunking.overlap-words`)
+- **Precise matches**: Smaller chunks enable more precise vector similarity matches
+- **Context continuity**: Overlap ensures context isn't lost between chunks
+
+#### Chunking Algorithm
+1. **Paragraph detection**: Split text on double newlines to identify paragraphs
+2. **Size assessment**: If paragraph is smaller than max chunk size, keep it intact
+3. **Word-based splitting**: For large paragraphs, split on word boundaries
+4. **Overlap application**: Each chunk overlaps with the previous one to maintain context
+5. **Quality preservation**: Maintains document structure while optimizing for embedding performance
+
+#### Configuration Options
+```properties
+# Enhanced chunking configuration
+app.chunking.max-words-per-chunk=300  # Words per chunk (200-500 recommended)
+app.chunking.overlap-words=30         # Overlap words between chunks
+```
+
+#### Benefits
+- **Better search results**: Smaller chunks provide more precise matches
+- **Context preservation**: Overlap maintains continuity between chunks
+- **Semantic integrity**: Paragraph-based splitting preserves meaning
+- **Configurable**: Easy to tune for different document types and use cases
 
 ### Message Format Support
 

@@ -181,11 +181,19 @@ curl -X POST http://localhost:9000 \
 | `app.monitoring.rabbitmq.enabled` | Enable RabbitMQ metrics publishing | `false` |
 | `app.monitoring.rabbitmq.queue-name` | RabbitMQ queue name for metrics | `embedproc.metrics` |
 
+### Chunking Configuration
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `app.chunking.max-words-per-chunk` | Maximum words per chunk (200-500 recommended) | `300` |
+| `app.chunking.overlap-words` | Overlap words between chunks for context continuity | `30` |
+
 ## 📊 Document Processing
 
 ### Text Chunking
-- **Chunk Size**: 2000 characters (optimized for performance)
-- **Overlap**: 200 characters (improved context preservation)
+- **Chunk Size**: 300 words (configurable, optimized for precise matches)
+- **Overlap**: 30 words (configurable, maintains context continuity)
+- **Semantic Boundaries**: Paragraph-based splitting preserves document structure
 - **Metadata**: Preserved for each chunk
 
 ### Supported File Types
@@ -195,7 +203,7 @@ curl -X POST http://localhost:9000 \
 ### Processing Flow
 1. **File Detection**: Monitor input directory
 2. **Text Extraction**: Read and validate content
-3. **Chunking**: Split large documents with overlap
+3. **Semantic Chunking**: Split on paragraph boundaries with word-based overlap
 4. **Embedding**: Generate vectors using AI model
 5. **Storage**: Store in PostgreSQL with pgvector
 6. **Cleanup**: Move processed files

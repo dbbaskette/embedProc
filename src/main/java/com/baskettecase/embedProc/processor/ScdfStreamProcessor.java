@@ -30,14 +30,20 @@ public class ScdfStreamProcessor {
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final int maxWordsPerChunk;
+    private final int overlapWords;
 
     @Autowired
     public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, 
                              @Value("${app.query.text:}") String queryText,
+                             @Value("${app.chunking.max-words-per-chunk:300}") int maxWordsPerChunk,
+                             @Value("${app.chunking.overlap-words:30}") int overlapWords,
                              ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.queryText = queryText;
+        this.maxWordsPerChunk = maxWordsPerChunk;
+        this.overlapWords = overlapWords;
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
     }
@@ -97,6 +103,77 @@ public class ScdfStreamProcessor {
         }
         
         scanner.close();
+        return chunks;
+    }
+
+    /**
+     * Enhanced chunking with semantic boundaries and configurable strategies
+     * Supports smaller chunks (200-500 words) for precise matches with overlap
+     */
+    private List<String> chunkTextEnhanced(String text, int maxWordsPerChunk, int overlapWords) {
+        List<String> chunks = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return chunks;
+        }
+
+        // Split text into paragraphs first for semantic chunking
+        String[] paragraphs = text.split("\\n\\s*\\n");
+        
+        for (String paragraph : paragraphs) {
+            if (paragraph.trim().isEmpty()) {
+                continue;
+            }
+            
+            // If paragraph is smaller than max chunk size, add it as a single chunk
+            String[] words = paragraph.trim().split("\\s+");
+            if (words.length <= maxWordsPerChunk) {
+                chunks.add(paragraph.trim());
+                continue;
+            }
+            
+            // Split large paragraphs into smaller chunks with overlap
+            List<String> paragraphChunks = chunkParagraph(paragraph, maxWordsPerChunk, overlapWords);
+            chunks.addAll(paragraphChunks);
+        }
+        
+        return chunks;
+    }
+    
+    /**
+     * Chunk a single paragraph with word-based splitting and overlap
+     */
+    private List<String> chunkParagraph(String paragraph, int maxWordsPerChunk, int overlapWords) {
+        List<String> chunks = new ArrayList<>();
+        String[] words = paragraph.trim().split("\\s+");
+        
+        if (words.length <= maxWordsPerChunk) {
+            chunks.add(paragraph.trim());
+            return chunks;
+        }
+        
+        int startIndex = 0;
+        while (startIndex < words.length) {
+            int endIndex = Math.min(startIndex + maxWordsPerChunk, words.length);
+            
+            // Build the chunk
+            StringBuilder chunkBuilder = new StringBuilder();
+            for (int i = startIndex; i < endIndex; i++) {
+                if (i > startIndex) {
+                    chunkBuilder.append(' ');
+                }
+                chunkBuilder.append(words[i]);
+            }
+            
+            chunks.add(chunkBuilder.toString());
+            
+            // Calculate next start index with overlap
+            if (endIndex < words.length) {
+                startIndex = Math.max(startIndex + 1, endIndex - overlapWords);
+            } else {
+                break;
+            }
+        }
+        
         return chunks;
     }
 
@@ -297,7 +374,7 @@ public class ScdfStreamProcessor {
                 
                 // Split the text into chunks (2000 characters per chunk, 200 characters overlap)
                 // Optimized for performance: larger chunks = fewer API calls
-                List<String> chunks = chunkText(fileContent, 2000, 200);
+                List<String> chunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
                 
                 if (chunks.isEmpty()) {
                     logger.warn("No chunks generated from the file content");

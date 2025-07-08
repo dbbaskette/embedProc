@@ -1,75 +1,76 @@
 # Quick Reference
 
-## pgvector Integration (Spring AI)
+## Configuration Properties
 
-**Required Environment Variables / Properties:**
-- `POSTGRES_HOST` (e.g. localhost)
-- `POSTGRES_PORT` (e.g. 5432)
-- `POSTGRES_DB` (your database name)
-- `POSTGRES_USER` (your username)
-- `POSTGRES_PASSWORD` (your password)
+### Core Properties
+- `app.processor.mode`: Deployment mode (`standalone`, `cloud`)
+- `app.query.text`: Default query for vector operations
 
-**Spring Boot Properties (can be set in application-cloud.properties):**
-```properties
-spring.datasource.url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-spring.datasource.username=${POSTGRES_USER}
-spring.datasource.password=${POSTGRES_PASSWORD}
-spring.ai.vectorstore.pgvector.enabled=true
-spring.ai.vectorstore.pgvector.table-name=embeddings
+### Database Configuration
+- `spring.datasource.url`: PostgreSQL connection URL
+- `spring.datasource.username`: Database username
+- `spring.datasource.password`: Database password
+- `spring.datasource.driver-class-name`: PostgreSQL driver
+
+### AI Model Configuration
+- `spring.ai.ollama.base-url`: Ollama server URL (standalone)
+- `spring.ai.ollama.embedding.model`: Ollama model name
+- `spring.ai.openai.api-key`: OpenAI API key (cloud)
+- `spring.ai.openai.embedding.options.model`: OpenAI model name
+
+### Vector Store Configuration
+- `spring.ai.vectorstore.pgvector.enabled`: Enable pgvector
+- `spring.ai.vectorstore.pgvector.dimensions`: Vector dimensions (768 for Ollama, 1536 for OpenAI)
+- `spring.ai.vectorstore.pgvector.distance-type`: Distance metric (COSINE_DISTANCE)
+- `spring.ai.vectorstore.pgvector.table-name`: Table name (embeddings)
+- `spring.ai.vectorstore.pgvector.initialize-schema`: Auto-create schema
+
+### Directory Configuration (Standalone)
+- `app.processor.standalone.input-directory`: Input files location
+- `app.processor.standalone.processed-directory`: Processed files location
+- `app.processor.standalone.error-directory`: Error files location
+
+### Monitoring Configuration
+- `app.monitoring.rabbitmq.enabled`: Enable RabbitMQ metrics publishing
+- `app.monitoring.rabbitmq.queue-name`: RabbitMQ queue name for metrics
+
+### Enhanced Chunking Configuration
+- `app.chunking.max-words-per-chunk`: Maximum words per chunk (200-500 recommended)
+- `app.chunking.overlap-words`: Overlap words between chunks for context continuity
+
+## Deployment Profiles
+
+### Local Development
+```bash
+./mvnw spring-boot:run -Dspring.profiles.active=local
 ```
 
-- Table name defaults to `embeddings` but can be changed.
-- All values can be set via environment variables or deployment properties.
-
-**Log message formats:**
-- Success: `[VectorStoreService] Successfully stored embedding for text preview: '...'`
-- Error: `[VectorStoreService] Failed to store embedding for text preview: '...'. Error: <error message>`
-
-## Monitoring Configuration
-
-**RabbitMQ Metrics Publishing:**
-```properties
-# Enable RabbitMQ metrics publishing (cloud profile)
-app.monitoring.rabbitmq.enabled=true
-app.monitoring.rabbitmq.queue-name=embedproc.metrics
+### Standalone Processing
+```bash
+./mvnw spring-boot:run -Dspring.profiles.active=standalone
 ```
 
-**Instance Startup Reporting:**
-- Automatic behavior: Each instance reports on startup
-- Instance ID format: `{appName}-{instanceIndex}`
-- See `DISTRIBUTED_MONITORING_IMPLEMENTATION.md` for details
-
-
-
-## Required Dependencies
-- `spring-boot-starter-web`: Required for embedding with Spring AI Ollama integration (provides `RestClient.Builder` bean)
-
-## Cloud Mode Features
-
-**Message Format Support:**
-- JSON with `fileUrl`, `url`, `file_url`, or `content` fields
-- Plain text with "Processed file:" prefix
-- Byte array messages (auto-converted to UTF-8)
-
-**WebHDFS Support:**
-- Automatic detection of `/webhdfs/` URLs
-- Handles double-encoding issues (`%2520` → `%20`)
-- Adds required `?op=OPEN` parameter
-- Uses `URI` instead of `String` to prevent re-encoding
-
-**Performance Optimizations:**
-- Chunk size: 2000 characters (was 1000)
-- Overlap: 200 characters (was 100)
-- Batch processing: 10 embeddings per batch
-- Connection pooling: 20 max connections
-
-## Common Startup Errors
-- **Missing RestClient.Builder**: Add `spring-boot-starter-web` to your dependencies if you see UnsatisfiedDependencyException for `RestClient.Builder`.
-
-## Typical pom.xml snippet
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-web</artifactId>
-</dependency>
+### Cloud/SCDF Deployment
+```bash
+./mvnw spring-boot:run -Dspring.profiles.active=cloud
 ```
+
+## Key Features
+
+### Enhanced Text Chunking
+- **Semantic boundaries**: Paragraph-based splitting preserves document structure
+- **Configurable size**: 300 words per chunk (default, configurable)
+- **Overlap**: 30 words overlap maintains context continuity
+- **Precise matches**: Smaller chunks enable more accurate vector similarity
+
+### Message Processing
+- **Multiple formats**: JSON, plain text, byte arrays
+- **URL extraction**: Supports `fileUrl`, `url`, `file_url`, `content` fields
+- **WebHDFS support**: Specialized handling for Hadoop Distributed File System
+- **Fallback processing**: Direct content processing for backward compatibility
+
+### Monitoring & Metrics
+- **Instance reporting**: Automatic startup reporting to metrics queue
+- **Processing metrics**: Success/error counters with batch processing
+- **Health checks**: Custom health indicators for vector store connectivity
+- **Performance monitoring**: Batch processing and connection pooling optimizations
