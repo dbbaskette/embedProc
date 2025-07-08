@@ -140,8 +140,11 @@ public class ScdfStreamProcessor {
             // Create HTTP entity with headers
             org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
             
-            // Make the request
-            ResponseEntity<String> response = restTemplate.exchange(webHdfsUrl, org.springframework.http.HttpMethod.GET, entity, String.class);
+            // Create URI to prevent RestTemplate from re-encoding the URL
+            java.net.URI uri = new java.net.URI(webHdfsUrl);
+            
+            // Make the request using URI instead of String to prevent re-encoding
+            ResponseEntity<String> response = restTemplate.exchange(uri, org.springframework.http.HttpMethod.GET, entity, String.class);
             
             if (response.getStatusCode().is2xxSuccessful()) {
                 String content = response.getBody();

@@ -110,3 +110,4 @@ After adding, rebuild your project.
     - Automatically adds required `?op=OPEN` parameter
     - Preserves spaces as `%20` for WebHDFS compatibility
     - Only fixes double-encoded parts, doesn't decode valid URL encoding
+    - Uses `URI` instead of `String` in `RestTemplate` to prevent re-encoding of already-encoded URLs
