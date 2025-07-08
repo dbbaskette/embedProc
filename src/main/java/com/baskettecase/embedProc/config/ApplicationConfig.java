@@ -2,17 +2,12 @@ package com.baskettecase.embedProc.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Autowired;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Counter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Configuration
 public class ApplicationConfig {
-
-    @Autowired(required = false)
-    private VectorStore vectorStore;
 
     @Bean
     public Counter embeddingProcessedCounter(MeterRegistry meterRegistry) {
