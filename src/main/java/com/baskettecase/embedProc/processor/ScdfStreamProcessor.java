@@ -207,12 +207,12 @@ public class ScdfStreamProcessor {
                     return content;
                 } else {
                     logger.error("Failed to fetch file content from URL: {}. Status: {}", fileUrl, response.getStatusCode());
-                    throw new RuntimeException("Failed to fetch file content, HTTP status: " + response.getStatusCode());
+                    return null; // Return null instead of throwing exception
                 }
             }
         } catch (Exception e) {
             logger.error("Error fetching file content from URL: {}. Error: {}", fileUrl, e.getMessage());
-            throw new RuntimeException("Failed to fetch file content from URL: " + fileUrl, e);
+            return null; // Return null instead of throwing exception
         }
     }
 
@@ -239,11 +239,11 @@ public class ScdfStreamProcessor {
                 return content;
             } else {
                 logger.error("Failed to fetch WebHDFS content. Status: {}, Response: {}", response.getStatusCode(), response.getBody());
-                throw new RuntimeException("Failed to fetch WebHDFS content, HTTP status: " + response.getStatusCode());
+                return null; // Return null instead of throwing exception
             }
         } catch (Exception e) {
             logger.error("Error fetching WebHDFS content from URL: {}. Error: {}", webHdfsUrl, e.getMessage());
-            throw new RuntimeException("Failed to fetch WebHDFS content from URL: " + webHdfsUrl, e);
+            return null; // Return null instead of throwing exception
         }
     }
 
@@ -281,7 +281,8 @@ public class ScdfStreamProcessor {
             }
             
             if (fileUrl == null || fileUrl.trim().isEmpty()) {
-                throw new RuntimeException("No file URL found in message");
+                logger.warn("No file URL found in message");
+                return null;
             }
             
             // Fix WebHDFS URL encoding and add operation parameter
@@ -381,26 +382,9 @@ public class ScdfStreamProcessor {
                 }
             } catch (Exception e) {
                 logger.error("Error processing document: {}", e.getMessage(), e);
-                throw new RuntimeException("Failed to process document", e);
+                //throw new RuntimeException("Failed to process document", e);
             }
         };
-    }
-}
-@Configuration
-@Profile("cloud")
-class ScdfStreamProcessorConfig {
-    
-    @Bean
-    public ScdfStreamProcessor scdfStreamProcessor(
-            EmbeddingService embeddingService, 
-            VectorQueryProcessor vectorQueryProcessor,
-            @Value("${app.query.text:}") String queryText,
-            @Value("${app.chunking.max-words-per-chunk:300}") int maxWordsPerChunk,
-            @Value("${app.chunking.overlap-words:30}") int overlapWords,
-            ObjectMapper objectMapper, 
-            RestTemplate restTemplate) {
-        return new ScdfStreamProcessor(embeddingService, vectorQueryProcessor, queryText, 
-                                     maxWordsPerChunk, overlapWords, objectMapper, restTemplate);
     }
 }
 
