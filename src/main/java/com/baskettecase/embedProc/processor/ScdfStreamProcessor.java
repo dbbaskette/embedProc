@@ -165,9 +165,10 @@ public class ScdfStreamProcessor {
             
             chunks.add(chunkBuilder.toString());
             
-            // Calculate next start index with overlap
+            // Calculate next start index with proper overlap
             if (endIndex < words.length) {
-                startIndex = Math.max(startIndex + 1, endIndex - overlapWords);
+                // Move forward by (chunk size - overlap) to create proper overlap
+                startIndex = endIndex - overlapWords;
             } else {
                 break;
             }
