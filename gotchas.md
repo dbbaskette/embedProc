@@ -30,14 +30,14 @@
 ## Enhanced Chunking Strategy
 
 ### Chunk Size Considerations
-- **Issue**: Very small chunks (< 100 words) may lose context
-- **Solution**: Default 300 words with 30-word overlap provides good balance
-- **Recommendation**: Use 200-500 words for optimal results
+- **Issue**: Very small chunks (< 100 words) provide poor context for Q&A
+- **Solution**: Default 1000 words with 150-word overlap and 100-word minimum provides better Q&A context
+- **Recommendation**: Use 800-1200 words for optimal Q&A results
 
 ### Paragraph Boundary Detection
 - **Issue**: Documents without clear paragraph breaks may create very large chunks
-- **Solution**: Fallback to word-based splitting for large paragraphs
-- **Prevention**: Ensure documents have proper paragraph formatting
+- **Solution**: Enhanced algorithm combines short paragraphs to create meaningful chunks of at least 100 words
+- **Prevention**: Ensure documents have proper paragraph formatting for optimal chunking
 
 ### Memory Usage
 - **Issue**: Large documents with many small chunks can increase memory usage

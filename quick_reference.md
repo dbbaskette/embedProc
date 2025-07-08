@@ -35,7 +35,7 @@
 - `app.monitoring.rabbitmq.queue-name`: RabbitMQ queue name for metrics
 
 ### Enhanced Chunking Configuration
-- `app.chunking.max-words-per-chunk`: Maximum words per chunk (200-500 recommended)
+- `app.chunking.max-words-per-chunk`: Maximum words per chunk (800-1200 recommended for Q&A)
 - `app.chunking.overlap-words`: Overlap words between chunks for context continuity
 
 ## Deployment Profiles
@@ -59,9 +59,10 @@
 
 ### Enhanced Text Chunking
 - **Semantic boundaries**: Paragraph-based splitting preserves document structure
-- **Configurable size**: 300 words per chunk (default, configurable)
-- **Overlap**: 30 words overlap maintains context continuity
-- **Precise matches**: Smaller chunks enable more accurate vector similarity
+- **Configurable size**: 1000 words per chunk (default, configurable)
+- **Minimum size**: 100 words minimum to ensure meaningful context for Q&A
+- **Overlap**: 150 words overlap maintains context continuity
+- **Better Q&A context**: Larger chunks provide more comprehensive context for question answering
 
 ### Message Processing
 - **Multiple formats**: JSON, plain text, byte arrays

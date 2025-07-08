@@ -99,27 +99,28 @@ The application now uses an enhanced chunking strategy that implements the recom
 - **Context preservation**: Maintains document structure and flow
 
 #### Configurable Chunk Sizes
-- **Default chunk size**: 300 words (configurable via `app.chunking.max-words-per-chunk`)
-- **Overlap**: 30 words (configurable via `app.chunking.overlap-words`)
-- **Precise matches**: Smaller chunks enable more precise vector similarity matches
+- **Default chunk size**: 1000 words (configurable via `app.chunking.max-words-per-chunk`)
+- **Overlap**: 150 words (configurable via `app.chunking.overlap-words`)
+- **Minimum chunk size**: 100 words to ensure meaningful context for Q&A
 - **Context continuity**: Overlap ensures context isn't lost between chunks
 
 #### Chunking Algorithm
 1. **Paragraph detection**: Split text on double newlines to identify paragraphs
-2. **Size assessment**: If paragraph is smaller than max chunk size, keep it intact
-3. **Word-based splitting**: For large paragraphs, split on word boundaries
-4. **Overlap application**: Each chunk overlaps with the previous one to maintain context
-5. **Quality preservation**: Maintains document structure while optimizing for embedding performance
+2. **Paragraph combination**: Combine short paragraphs to create meaningful chunks of at least 100 words
+3. **Size management**: Build chunks up to the maximum word limit while preserving paragraph boundaries
+4. **Quality filtering**: Only include chunks with at least 100 words to ensure meaningful context for Q&A
+5. **Context preservation**: Maintains document structure and semantic meaning
 
 #### Configuration Options
 ```properties
 # Enhanced chunking configuration
-app.chunking.max-words-per-chunk=300  # Words per chunk (200-500 recommended)
-app.chunking.overlap-words=30         # Overlap words between chunks
+app.chunking.max-words-per-chunk=1000  # Words per chunk (800-1200 recommended for Q&A)
+app.chunking.overlap-words=150         # Overlap words between chunks
 ```
 
 #### Benefits
-- **Better search results**: Smaller chunks provide more precise matches
+- **Better Q&A context**: Larger chunks provide more comprehensive context for question answering
+- **Meaningful content**: Minimum 100-word requirement ensures chunks contain substantial information
 - **Context preservation**: Overlap maintains continuity between chunks
 - **Semantic integrity**: Paragraph-based splitting preserves meaning
 - **Configurable**: Easy to tune for different document types and use cases
