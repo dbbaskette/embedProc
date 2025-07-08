@@ -13,14 +13,18 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Profile;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CompletableFuture;
 
 @Configuration
 @Profile("cloud")
+@EnableAsync
 public class ScdfStreamProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
@@ -354,39 +358,58 @@ public class ScdfStreamProcessor {
                     return;
                 }
 
-                // Fetch file content
-                String fileContent = fetchFileContent(fileUrl);
-                if (fileContent == null || fileContent.isEmpty()) {
-                    logger.warn("No content found in file: {}", fileUrl);
-                    return;
-                }
-
-                logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
+                logger.info("Extracted file URL: {}. Processing asynchronously to allow immediate acknowledgment.", fileUrl);
                 
-                // Enhanced chunking with semantic boundaries
-                List<String> chunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-                logger.info("Created {} chunks from file: {}", chunks.size(), fileUrl);
+                // Process the entire file asynchronously - this allows immediate acknowledgment
+                processFileAsync(fileUrl);
                 
-                if (chunks.isEmpty()) {
-                    logger.warn("No chunks generated from the input text");
-                    return;
-                }
-
-                // Store embeddings using the EmbeddingService
-                embeddingService.storeEmbeddings(chunks);
-                
-                // Optionally run query after embedding if queryText is set and hasn't run yet
-                if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
-                    vectorQueryProcessor.runQuery(queryText, 5);
-                }
-                
-                logger.info("embedProc function completed successfully");
+                logger.info("embedProc function completed successfully - file processing asynchronously");
                 
             } catch (Exception e) {
                 logger.error("Error processing document: {}", e.getMessage(), e);
                 // Don't throw exception to allow message acknowledgment
             }
         };
+    }
+
+    @Async
+    public CompletableFuture<Void> processFileAsync(String fileUrl) {
+        try {
+            logger.info("Starting async file processing for: {}", fileUrl);
+            
+            // Fetch file content
+            String fileContent = fetchFileContent(fileUrl);
+            if (fileContent == null || fileContent.isEmpty()) {
+                logger.warn("No content found in file: {}", fileUrl);
+                return CompletableFuture.completedFuture(null);
+            }
+
+            logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
+            
+            // Enhanced chunking with semantic boundaries
+            List<String> chunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
+            logger.info("Created {} chunks from file: {}", chunks.size(), fileUrl);
+            
+            if (chunks.isEmpty()) {
+                logger.warn("No chunks generated from the input text");
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // Store embeddings using the EmbeddingService
+            embeddingService.storeEmbeddings(chunks);
+            
+            // Optionally run query after embedding if queryText is set and hasn't run yet
+            if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
+                vectorQueryProcessor.runQuery(queryText, 5);
+            }
+            
+            logger.info("Async file processing completed successfully for file: {}", fileUrl);
+            
+        } catch (Exception e) {
+            logger.error("Error in async file processing for file {}: {}", fileUrl, e.getMessage(), e);
+        }
+        
+        return CompletableFuture.completedFuture(null);
     }
 }
 
