@@ -136,8 +136,8 @@ main() {
                 exec "$exec_script" "$@"
             else
                 print_error "Failed to download script. Cannot continue."
-                exit 1
-            fi
+    exit 1
+  fi
         else
             print_info "Executing latest version..."
             exec "./.release-exec" "$@"

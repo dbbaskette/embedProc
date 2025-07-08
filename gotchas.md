@@ -83,3 +83,23 @@ After adding, rebuild your project.
   - Startup reporting requires `app.monitoring.rabbitmq.enabled=true`
   - If disabled, startup reporting will be skipped (no error)
   - Verify RabbitMQ service binding in Cloud Foundry for cloud deployments
+
+## SCDF Stream Processing Issues
+
+- **Function Binding Mismatch:**
+  - **Issue**: embedProc was embedding queue messages instead of processing file content
+  - **Root Cause**: Spring Cloud Stream binding was incorrectly configured as `processText-in-0` instead of `embedProc-in-0`
+  - **Solution**: Updated all configuration files to use correct function name `embedProc` matching the `@Bean` method
+  - **Fixed Files**: `application.properties`, `application-cloud.properties`, `application-test.properties`
+  - **SCDF Configuration**: Your SCDF config correctly uses `embedProc-in-0.destination: "textproc-embedproc"`
+  - **Function Definition**: Added `spring.cloud.function.definition=embedProc` to ensure proper SCDF integration
+
+- **File URL Processing:**
+  - **Issue**: embedProc was treating file URLs as direct content instead of fetching file content
+  - **Root Cause**: The processor expected direct file content but received JSON messages with file URLs
+  - **Solution**: Enhanced `ScdfStreamProcessor` to parse JSON messages and fetch file content from URLs
+  - **New Features**: 
+    - JSON message parsing with multiple field name support (`fileUrl`, `url`, `file_url`, `content`)
+    - HTTP file content fetching using RestTemplate
+    - Fallback to direct content processing for backward compatibility
+  - **Dependencies**: Added `RestTemplate` bean to `ApplicationConfig` for HTTP requests

@@ -26,6 +26,12 @@ The application supports multiple deployment profiles:
 - **application-scdf.properties**: Removed (consolidated into cloud profile)
 - All Java components updated to use "cloud" profile instead of "scdf"
 
+### Spring Cloud Stream Configuration
+- **Function Name**: `embedProc` (matches the `@Bean` method in `ScdfStreamProcessor`)
+- **Input Binding**: `embedProc-in-0.destination=textInput`
+- **Function Definition**: `spring.cloud.function.definition=embedProc`
+- **Binder**: RabbitMQ (default)
+
 ## Embedding Storage with pgvector
 
 Embeddings are stored in PostgreSQL with pgvector using the Spring AI `VectorStore` interface through the `EmbeddingService`.
@@ -68,6 +74,29 @@ The application now includes comprehensive monitoring:
 ### Retry Logic
 - Automatic retry on transient failures (3 attempts with 1-second backoff)
 - Proper error propagation for non-recoverable errors
+
+## SCDF Processing Flow
+
+When running in SCDF mode, the application:
+
+1. **Receives Message**: Gets JSON message containing file URL from the input queue (`textproc-embedproc`)
+2. **Extracts File URL**: Parses JSON message to extract the file URL (supports `fileUrl`, `url`, `file_url` fields)
+3. **Fetches File Content**: Downloads the file content from the URL using RestTemplate
+4. **Chunks Text**: Splits large documents into 1000-word chunks with 100-word overlap
+5. **Generates Embeddings**: Creates embeddings for each chunk using the configured AI model
+6. **Stores Embeddings**: Saves embeddings to PostgreSQL with pgvector
+7. **Logs Progress**: Records processing metrics and sends to metrics queue
+
+The `ScdfStreamProcessor.embedProc()` function is the entry point that processes each message from the queue.
+
+### Message Format Support
+The processor supports multiple message formats:
+- **JSON with fileUrl**: `{"fileUrl": "http://example.com/file.txt"}`
+- **JSON with url**: `{"url": "http://example.com/file.txt"}`
+- **JSON with file_url**: `{"file_url": "http://example.com/file.txt"}`
+- **JSON with content**: `{"content": "direct file content here"}`
+- **Plain URL**: Direct URL string
+- **Direct Content**: Raw file content (fallback)
 
 ## Logging for Embedding Output
 

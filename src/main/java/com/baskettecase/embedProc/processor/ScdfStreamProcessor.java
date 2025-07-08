@@ -8,6 +8,10 @@ import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.ResponseEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,12 +28,18 @@ public class ScdfStreamProcessor {
     private final VectorQueryProcessor vectorQueryProcessor;
     private final String queryText;
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
+    private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
 
     @Autowired
-    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, @Value("${app.query.text:}") String queryText) {
+    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, 
+                             @Value("${app.query.text:}") String queryText,
+                             ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.queryText = queryText;
+        this.objectMapper = objectMapper;
+        this.restTemplate = restTemplate;
     }
 
     private List<String> chunkText(String text, int chunkSize, int overlap) {
@@ -90,26 +100,100 @@ public class ScdfStreamProcessor {
         return chunks;
     }
 
+    private String fetchFileContent(String fileUrl) {
+        try {
+            logger.info("Fetching file content from URL: {}", fileUrl);
+            ResponseEntity<String> response = restTemplate.getForEntity(fileUrl, String.class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                String content = response.getBody();
+                logger.info("Successfully fetched file content, length: {} characters", content != null ? content.length() : 0);
+                return content;
+            } else {
+                logger.error("Failed to fetch file content from URL: {}. Status: {}", fileUrl, response.getStatusCode());
+                throw new RuntimeException("Failed to fetch file content, HTTP status: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            logger.error("Error fetching file content from URL: {}. Error: {}", fileUrl, e.getMessage());
+            throw new RuntimeException("Failed to fetch file content from URL: " + fileUrl, e);
+        }
+    }
+
+    private String extractFileUrl(String message) {
+        try {
+            // Try to parse as JSON first
+            JsonNode jsonNode = objectMapper.readTree(message);
+            
+            // Look for common field names that might contain the file URL
+            String fileUrl = null;
+            if (jsonNode.has("fileUrl")) {
+                fileUrl = jsonNode.get("fileUrl").asText();
+            } else if (jsonNode.has("url")) {
+                fileUrl = jsonNode.get("url").asText();
+            } else if (jsonNode.has("file_url")) {
+                fileUrl = jsonNode.get("file_url").asText();
+            } else if (jsonNode.has("content")) {
+                // If the message has a content field, use that directly
+                return jsonNode.get("content").asText();
+            } else {
+                // If no recognized field, assume the entire message is the URL
+                fileUrl = message.trim();
+            }
+            
+            if (fileUrl == null || fileUrl.trim().isEmpty()) {
+                throw new RuntimeException("No file URL found in message");
+            }
+            
+            logger.info("Extracted file URL from message: {}", fileUrl);
+            return fileUrl;
+            
+        } catch (Exception e) {
+            logger.warn("Failed to parse message as JSON, treating as direct content: {}", e.getMessage());
+            // If JSON parsing fails, assume the message is the content itself
+            return null;
+        }
+    }
+
     @Bean
     public Consumer<String> embedProc() {
-        return text -> {
+        return message -> {
             try {
-                if (text == null || text.trim().isEmpty()) {
-                    logger.warn("Received empty text, skipping...");
+                if (message == null || message.trim().isEmpty()) {
+                    logger.warn("Received empty message, skipping...");
                     return;
                 }
 
-                logger.info("Processing document of length: {} characters", text.length());
+                logger.info("Processing message of length: {} characters", message.length());
+                
+                // Extract file URL from the message
+                String fileUrl = extractFileUrl(message);
+                String fileContent;
+                
+                if (fileUrl != null) {
+                    // Fetch the file content from the URL
+                    fileContent = fetchFileContent(fileUrl);
+                } else {
+                    // If no URL was extracted, treat the message as direct content
+                    fileContent = message;
+                    logger.info("Treating message as direct file content");
+                }
+                
+                if (fileContent == null || fileContent.trim().isEmpty()) {
+                    logger.warn("No file content to process, skipping...");
+                    return;
+                }
+
+                logger.info("Processing file content of length: {} characters", fileContent.length());
                 
                 // Split the text into chunks (1000 words per chunk, 100 words overlap)
-                List<String> chunks = chunkText(text, 1000, 100);
+                List<String> chunks = chunkText(fileContent, 1000, 100);
                 
                 if (chunks.isEmpty()) {
-                    logger.warn("No chunks generated from the input text");
+                    logger.warn("No chunks generated from the file content");
                     return;
                 }
 
-                logger.info("Generated {} chunks", chunks.size());
+                logger.info("Generated {} chunks from file content", chunks.size());
                 
                 // Store embeddings using the EmbeddingService
                 embeddingService.storeEmbeddings(chunks);
@@ -119,8 +203,8 @@ public class ScdfStreamProcessor {
                     vectorQueryProcessor.runQuery(queryText, 5);
                 }
             } catch (Exception e) {
-                logger.error("Error processing document: {}", e.getMessage(), e);
-                throw new RuntimeException("Failed to process document", e);
+                logger.error("Error processing message: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to process message", e);
             }
         };
     }

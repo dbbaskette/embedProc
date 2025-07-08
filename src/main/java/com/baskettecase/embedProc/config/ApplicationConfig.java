@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Counter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
 public class ApplicationConfig {
@@ -26,5 +27,10 @@ public class ApplicationConfig {
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 } 
