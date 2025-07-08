@@ -102,13 +102,13 @@ public class ScdfStreamProcessor {
 
     private String fetchFileContent(String fileUrl) {
         try {
-            logger.info("Fetching file content from URL: {}", fileUrl);
+            // Reduced logging to prevent log rate limits
             
             // Check if this is a WebHDFS URL
             boolean isWebHdfs = fileUrl.contains("/webhdfs/");
             
             if (isWebHdfs) {
-                logger.info("Detected WebHDFS URL, using specialized handling");
+                // Reduced logging to prevent log rate limits
                 return fetchWebHdfsContent(fileUrl);
             } else {
                 // Regular HTTP URL handling
@@ -116,7 +116,7 @@ public class ScdfStreamProcessor {
                 
                 if (response.getStatusCode().is2xxSuccessful()) {
                     String content = response.getBody();
-                    logger.info("Successfully fetched file content, length: {} characters", content != null ? content.length() : 0);
+                    // Reduced logging to prevent log rate limits
                     return content;
                 } else {
                     logger.error("Failed to fetch file content from URL: {}. Status: {}", fileUrl, response.getStatusCode());
@@ -131,7 +131,7 @@ public class ScdfStreamProcessor {
 
     private String fetchWebHdfsContent(String webHdfsUrl) {
         try {
-            logger.info("Fetching content from WebHDFS URL: {}", webHdfsUrl);
+            // Reduced logging to prevent log rate limits
             
             // WebHDFS requires specific headers and may need to follow redirects
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
@@ -148,7 +148,7 @@ public class ScdfStreamProcessor {
             
             if (response.getStatusCode().is2xxSuccessful()) {
                 String content = response.getBody();
-                logger.info("Successfully fetched WebHDFS content, length: {} characters", content != null ? content.length() : 0);
+                // Reduced logging to prevent log rate limits
                 return content;
             } else {
                 logger.error("Failed to fetch WebHDFS content. Status: {}, Response: {}", response.getStatusCode(), response.getBody());
@@ -188,7 +188,7 @@ public class ScdfStreamProcessor {
             // Fix WebHDFS URL encoding and add operation parameter
             fileUrl = fixWebHdfsUrl(fileUrl);
             
-            logger.info("Extracted and fixed file URL from message: {}", fileUrl);
+            // Reduced logging to prevent log rate limits
             return fileUrl;
             
         } catch (Exception e) {
@@ -202,7 +202,7 @@ public class ScdfStreamProcessor {
                     // Fix WebHDFS URL encoding and add operation parameter
                     fileUrl = fixWebHdfsUrl(fileUrl);
                     
-                    logger.info("Extracted file URL from plain text message: {}", fileUrl);
+                    // Reduced logging to prevent log rate limits
                     return fileUrl;
                 }
             }
@@ -218,7 +218,7 @@ public class ScdfStreamProcessor {
         try {
             // Check if this is a WebHDFS URL
             if (url.contains("/webhdfs/")) {
-                logger.info("Fixing WebHDFS URL: {}", url);
+                // Reduced logging to prevent log rate limits
                 
                 // Handle double-encoding but preserve URL encoding for WebHDFS
                 String processedUrl = url;
@@ -227,7 +227,7 @@ public class ScdfStreamProcessor {
                 if (url.contains("%25")) {
                     // Decode only the double-encoded parts
                     processedUrl = url.replace("%25", "%");
-                    logger.info("Fixed double-encoding: {}", processedUrl);
+                    // Reduced logging to prevent log rate limits
                 }
                 
                 // Remove any existing query parameters
@@ -238,7 +238,7 @@ public class ScdfStreamProcessor {
                 
                 // Add the required WebHDFS operation parameter
                 String fixedUrl = baseUrl + "?op=OPEN";
-                logger.info("Fixed WebHDFS URL: {}", fixedUrl);
+                // Reduced logging to prevent log rate limits
                 
                 return fixedUrl;
             } else {
@@ -262,10 +262,10 @@ public class ScdfStreamProcessor {
                     messageStr = (String) message;
                 } else if (message instanceof byte[]) {
                     messageStr = new String((byte[]) message, java.nio.charset.StandardCharsets.UTF_8);
-                    logger.debug("Converted byte array message to string: {}", messageStr);
+                    // Reduced logging to prevent log rate limits
                 } else {
                     messageStr = message.toString();
-                    logger.debug("Converted object message to string: {}", messageStr);
+                    // Reduced logging to prevent log rate limits
                 }
                 
                 if (messageStr == null || messageStr.trim().isEmpty()) {
@@ -273,7 +273,7 @@ public class ScdfStreamProcessor {
                     return;
                 }
 
-                logger.info("Processing message of length: {} characters", messageStr.length());
+                // Reduced logging to prevent log rate limits
                 
                 // Extract file URL from the message
                 String fileUrl = extractFileUrl(messageStr);
@@ -285,7 +285,7 @@ public class ScdfStreamProcessor {
                 } else {
                     // If no URL was extracted, treat the message as direct content
                     fileContent = messageStr;
-                    logger.info("Treating message as direct file content");
+                    // Reduced logging to prevent log rate limits
                 }
                 
                 if (fileContent == null || fileContent.trim().isEmpty()) {
@@ -293,7 +293,7 @@ public class ScdfStreamProcessor {
                     return;
                 }
 
-                logger.info("Processing file content of length: {} characters", fileContent.length());
+                // Reduced logging to prevent log rate limits
                 
                 // Split the text into chunks (2000 characters per chunk, 200 characters overlap)
                 // Optimized for performance: larger chunks = fewer API calls
@@ -304,7 +304,7 @@ public class ScdfStreamProcessor {
                     return;
                 }
 
-                logger.info("Generated {} chunks from file content", chunks.size());
+                // Reduced logging to prevent log rate limits
                 
                 // Store embeddings using batch processing for better performance
                 embeddingService.storeEmbeddings(chunks);

@@ -25,38 +25,43 @@ spring.ai.vectorstore.pgvector.table-name=embeddings
 - Success: `[VectorStoreService] Successfully stored embedding for text preview: '...'`
 - Error: `[VectorStoreService] Failed to store embedding for text preview: '...'. Error: <error message>`
 
-## Instance Startup Reporting
+## Monitoring Configuration
 
-**Automatic Behavior:**
-- Each instance reports itself to metrics queue on startup
-- Uses `ApplicationReadyEvent` to ensure app is fully initialized
-- Instance ID format: `{appName}-{instanceIndex}`
-
-**Configuration:**
+**RabbitMQ Metrics Publishing:**
 ```properties
 # Enable RabbitMQ metrics publishing (cloud profile)
 app.monitoring.rabbitmq.enabled=true
 app.monitoring.rabbitmq.queue-name=embedproc.metrics
 ```
 
-**Startup Message Format:**
-```json
-{
-  "instanceId": "embedProc-0",
-  "timestamp": "2025-01-03T10:30:00Z",
-  "totalChunks": 0,
-  "processedChunks": 0,
-  "errorCount": 0,
-  "processingRate": 0.0,
-  "uptime": "0h 0m",
-  "status": "STARTED"
-}
-```
+**Instance Startup Reporting:**
+- Automatic behavior: Each instance reports on startup
+- Instance ID format: `{appName}-{instanceIndex}`
+- See `DISTRIBUTED_MONITORING_IMPLEMENTATION.md` for details
 
 
 
 ## Required Dependencies
 - `spring-boot-starter-web`: Required for embedding with Spring AI Ollama integration (provides `RestClient.Builder` bean)
+
+## Cloud Mode Features
+
+**Message Format Support:**
+- JSON with `fileUrl`, `url`, `file_url`, or `content` fields
+- Plain text with "Processed file:" prefix
+- Byte array messages (auto-converted to UTF-8)
+
+**WebHDFS Support:**
+- Automatic detection of `/webhdfs/` URLs
+- Handles double-encoding issues (`%2520` → `%20`)
+- Adds required `?op=OPEN` parameter
+- Uses `URI` instead of `String` to prevent re-encoding
+
+**Performance Optimizations:**
+- Chunk size: 2000 characters (was 1000)
+- Overlap: 200 characters (was 100)
+- Batch processing: 10 embeddings per batch
+- Connection pooling: 20 max connections
 
 ## Common Startup Errors
 - **Missing RestClient.Builder**: Add `spring-boot-starter-web` to your dependencies if you see UnsatisfiedDependencyException for `RestClient.Builder`.

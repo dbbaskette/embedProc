@@ -184,8 +184,8 @@ curl -X POST http://localhost:9000 \
 ## 📊 Document Processing
 
 ### Text Chunking
-- **Chunk Size**: 1000 characters
-- **Overlap**: 100 characters
+- **Chunk Size**: 2000 characters (optimized for performance)
+- **Overlap**: 200 characters (improved context preservation)
 - **Metadata**: Preserved for each chunk
 
 ### Supported File Types
@@ -195,10 +195,17 @@ curl -X POST http://localhost:9000 \
 ### Processing Flow
 1. **File Detection**: Monitor input directory
 2. **Text Extraction**: Read and validate content
-3. **Chunking**: Split large documents
+3. **Chunking**: Split large documents with overlap
 4. **Embedding**: Generate vectors using AI model
 5. **Storage**: Store in PostgreSQL with pgvector
 6. **Cleanup**: Move processed files
+
+### Cloud Mode Features
+- **JSON Message Processing**: Handles multiple message formats (`fileUrl`, `url`, `file_url`, `content`)
+- **WebHDFS Support**: Specialized handling for Hadoop Distributed File System URLs
+- **URL Content Fetching**: Downloads file content from URLs using RestTemplate
+- **Byte Array Support**: Handles messages received as byte arrays
+- **Error Resilience**: Comprehensive retry logic and fallback mechanisms
 
 ## 📈 Monitoring & Observability
 
@@ -221,9 +228,10 @@ curl -X POST http://localhost:9000 \
 
 ### Logging
 ```properties
-# Enable detailed logging
-logging.level.com.baskettecase.embedProc=DEBUG
-logging.level.org.springframework.ai=INFO
+# Optimized logging for Cloud Foundry (prevents rate limits)
+logging.level.com.baskettecase.embedProc=INFO
+logging.level.org.springframework.ai=WARN
+logging.level.org.springframework.cloud.stream=WARN
 ```
 
 ### Health Checks
@@ -317,9 +325,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Documentation**: Check the `implementation_details.md` for technical details
-- **Known Issues**: See `gotchas.md` for common problems and solutions
-- **Quick Reference**: Use `quick_reference.md` for command cheat sheets
+### Documentation Hierarchy
+- **README.md**: Overview, quick start, and basic configuration
+- **implementation_details.md**: Technical architecture and implementation details
+- **gotchas.md**: Common problems, troubleshooting, and solutions
+- **quick_reference.md**: Configuration parameters and command references
+- **DISTRIBUTED_MONITORING_IMPLEMENTATION.md**: Monitoring system details
+- **RELEASE_NOTES.md**: Version history and feature changes
+
+### Getting Help
+- **New Users**: Start with README.md for overview and quick start
+- **Configuration Issues**: Check quick_reference.md for parameter details
+- **Troubleshooting**: Consult gotchas.md for common problems
+- **Technical Details**: See implementation_details.md for architecture
+- **Monitoring Setup**: Use DISTRIBUTED_MONITORING_IMPLEMENTATION.md
 
 ---
 

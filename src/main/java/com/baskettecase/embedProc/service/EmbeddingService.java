@@ -53,8 +53,7 @@ public class EmbeddingService {
                 monitorService.incrementProcessedChunks(1);
             }
             
-            logger.debug("Successfully stored embedding for text preview: '{}'", 
-                    text.substring(0, Math.min(text.length(), 50)) + "...");
+            // Removed debug logging to reduce log rate
             
         } catch (Exception e) {
             embeddingErrorCounter.increment();
@@ -104,7 +103,7 @@ public class EmbeddingService {
                 successCount += batch.size();
                 embeddingProcessedCounter.increment(batch.size());
                 
-                logger.debug("Successfully stored batch of {} embeddings", batch.size());
+                // Removed debug logging to reduce log rate
                 
             } catch (Exception e) {
                 errorCount += batch.size();

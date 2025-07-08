@@ -157,3 +157,49 @@ After adding, rebuild your project.
   - Messages are now sent using `Message` objects with explicit `MessageProperties`
   - Content type is set to `"application/json"` before sending
   - This prevents the `Jackson2JsonMessageConverter` warning in consuming services
+
+## Cloud Foundry Log Rate Limits
+
+- **Issue**: Application instances may exceed Cloud Foundry's log rate limit (16384 bytes/sec), causing:
+  ```
+  app instance exceeded log rate limit (16384 bytes/sec)
+  ```
+
+- **Root Cause**: Excessive DEBUG and INFO level logging during high-volume processing, particularly:
+  - File URL extraction and processing logs
+  - WebHDFS URL fixing logs
+  - File content fetching logs
+  - Batch processing logs
+  - Message conversion logs
+
+- **Impact**: 
+  - Log rate limits can cause Cloud Foundry to throttle or drop log messages
+  - May affect monitoring and debugging capabilities
+  - Can impact application performance if logging is too verbose
+
+- **Solution**: Optimized logging configuration and reduced verbosity:
+  - Changed `com.baskettecase.embedProc` logging from DEBUG to INFO level
+  - Changed `org.springframework.ai` and `org.springframework.cloud.stream` from DEBUG to WARN level
+  - Removed verbose INFO logs from `ScdfStreamProcessor` for file processing operations
+  - Removed DEBUG logs from `EmbeddingService` for batch processing
+  - Kept essential ERROR and WARN logs for troubleshooting
+  - Maintained startup and initialization logs for monitoring
+
+- **Configuration Changes**:
+  ```properties
+  # Before (verbose)
+  logging.level.com.baskettecase.embedProc=DEBUG
+  logging.level.org.springframework.ai=DEBUG
+  logging.level.org.springframework.cloud.stream=DEBUG
+  
+  # After (optimized)
+  logging.level.com.baskettecase.embedProc=INFO
+  logging.level.org.springframework.ai=WARN
+  logging.level.org.springframework.cloud.stream=WARN
+  ```
+
+- **Monitoring**: 
+  - Essential metrics and error logging are preserved
+  - Application health and performance monitoring remain functional
+  - Startup reporting and instance status tracking continue to work
+  - Batch processing completion logs are maintained for operational visibility
