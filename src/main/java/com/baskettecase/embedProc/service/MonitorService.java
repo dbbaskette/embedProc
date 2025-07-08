@@ -52,16 +52,19 @@ public class MonitorService {
 
     public void incrementTotalChunks(long count) {
         totalChunks.addAndGet(count);
+        logger.debug("Total chunks updated: {} (new total: {})", count, totalChunks.get());
         publishMetrics();
     }
 
     public void incrementProcessedChunks(long count) {
         processedChunks.addAndGet(count);
+        logger.debug("Processed chunks updated: {} (new total: {})", count, processedChunks.get());
         publishMetrics();
     }
 
     public void incrementErrors(long count) {
         errorCount.addAndGet(count);
+        logger.debug("Errors updated: {} (new total: {})", count, errorCount.get());
         publishMetrics();
     }
 

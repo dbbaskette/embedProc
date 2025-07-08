@@ -462,6 +462,12 @@ public class ScdfStreamProcessor {
                 vectorQueryProcessor.runQuery(queryText, 5);
             }
             
+            // Final completion metric
+            if (monitorService != null) {
+                logger.info("File processing completed: {} chunks processed for file: {}", 
+                           allChunks.size(), fileUrl);
+            }
+            
             logger.info("Streaming temp file processing completed successfully for file: {} ({} chunks)", 
                        fileUrl, allChunks.size());
             

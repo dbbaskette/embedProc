@@ -135,12 +135,6 @@ public class EmbeddingService {
             return;
         }
 
-        // Update total chunks count if monitor service is available
-        if (monitorService != null) {
-            monitorService.incrementTotalChunks(texts.size());
-            logger.debug("Updated total chunks count: {} for parallel processing", texts.size());
-        }
-
         // Process in parallel batches
         int batchSize = 20; // Larger batches for parallel processing
         List<CompletableFuture<Void>> futures = new java.util.ArrayList<>();
