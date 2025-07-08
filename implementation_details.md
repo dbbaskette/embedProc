@@ -90,13 +90,30 @@ When running in SCDF mode, the application:
 The `ScdfStreamProcessor.embedProc()` function is the entry point that processes each message from the queue.
 
 ### Message Format Support
-The processor supports multiple message formats:
+
+The `ScdfStreamProcessor` handles multiple message formats:
+
+#### JSON Message Formats
 - **JSON with fileUrl**: `{"fileUrl": "http://example.com/file.txt"}`
 - **JSON with url**: `{"url": "http://example.com/file.txt"}`
 - **JSON with file_url**: `{"file_url": "http://example.com/file.txt"}`
 - **JSON with content**: `{"content": "direct file content here"}`
-- **Plain URL**: Direct URL string
+- **JSON with type and url**: `{"type": "HDFS", "url": "http://example.com/file.txt", "processed": true, "originalFile": "http://example.com/original.pdf"}`
+
+#### Plain Text Message Formats
+- **Plain text with URL**: `"Processed file: http://example.com/file.txt"`
+- **Direct URL**: Direct URL string
 - **Direct Content**: Raw file content (fallback)
+
+#### Message Processing Priority
+1. **JSON parsing**: Attempts to parse as JSON first
+2. **Plain text URL extraction**: Checks for "Processed file:" prefix
+3. **Direct content**: Treats entire message as file content (fallback)
+
+#### Message Type Support
+- **String messages**: Direct string processing
+- **Byte array messages**: Automatically converted to UTF-8 string (common with JSON payloads)
+- **Object messages**: Converted to string via toString()
 
 ### URL Type Support
 The processor handles different types of URLs:

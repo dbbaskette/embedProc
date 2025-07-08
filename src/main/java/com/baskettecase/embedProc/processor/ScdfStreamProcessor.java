@@ -192,8 +192,24 @@ public class ScdfStreamProcessor {
             return fileUrl;
             
         } catch (Exception e) {
-            logger.warn("Failed to parse message as JSON, treating as direct content: {}", e.getMessage());
-            // If JSON parsing fails, assume the message is the content itself
+            logger.warn("Failed to parse message as JSON, checking for plain text format: {}", e.getMessage());
+            
+            // Handle new plain text format: "Processed file: http://..."
+            if (message != null && message.trim().startsWith("Processed file:")) {
+                String fileUrl = message.trim().substring("Processed file:".length()).trim();
+                
+                if (!fileUrl.isEmpty()) {
+                    // Fix WebHDFS URL encoding and add operation parameter
+                    fileUrl = fixWebHdfsUrl(fileUrl);
+                    
+                    logger.info("Extracted file URL from plain text message: {}", fileUrl);
+                    return fileUrl;
+                }
+            }
+            
+            // If JSON parsing fails and it's not the expected plain text format, 
+            // assume the message is the content itself
+            logger.warn("Message is not in expected format, treating as direct content");
             return null;
         }
     }
@@ -237,18 +253,30 @@ public class ScdfStreamProcessor {
     }
 
     @Bean
-    public Consumer<String> embedProc() {
+    public Consumer<Object> embedProc() {
         return message -> {
             try {
-                if (message == null || message.trim().isEmpty()) {
+                // Convert message to string, handling both String and byte[] types
+                String messageStr;
+                if (message instanceof String) {
+                    messageStr = (String) message;
+                } else if (message instanceof byte[]) {
+                    messageStr = new String((byte[]) message, java.nio.charset.StandardCharsets.UTF_8);
+                    logger.debug("Converted byte array message to string: {}", messageStr);
+                } else {
+                    messageStr = message.toString();
+                    logger.debug("Converted object message to string: {}", messageStr);
+                }
+                
+                if (messageStr == null || messageStr.trim().isEmpty()) {
                     logger.warn("Received empty message, skipping...");
                     return;
                 }
 
-                logger.info("Processing message of length: {} characters", message.length());
+                logger.info("Processing message of length: {} characters", messageStr.length());
                 
                 // Extract file URL from the message
-                String fileUrl = extractFileUrl(message);
+                String fileUrl = extractFileUrl(messageStr);
                 String fileContent;
                 
                 if (fileUrl != null) {
@@ -256,7 +284,7 @@ public class ScdfStreamProcessor {
                     fileContent = fetchFileContent(fileUrl);
                 } else {
                     // If no URL was extracted, treat the message as direct content
-                    fileContent = message;
+                    fileContent = messageStr;
                     logger.info("Treating message as direct file content");
                 }
                 

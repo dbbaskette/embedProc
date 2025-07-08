@@ -128,6 +128,18 @@ After adding, rebuild your project.
     - Only fixes double-encoded parts, doesn't decode valid URL encoding
     - Uses `URI` instead of `String` in `RestTemplate` to prevent re-encoding of already-encoded URLs
 
+## Message Format Changes
+
+- **Issue**: embedProc may receive messages in different formats from upstream processors
+- **JSON Format**: `{"fileUrl": "http://example.com/file.txt"}` (original expected format)
+- **New JSON Format**: `{"type": "HDFS", "url": "http://example.com/file.txt", "processed": true, "originalFile": "http://example.com/original.pdf"}` (from text processor)
+- **Plain Text Format**: `"Processed file: http://example.com/file.txt"` (alternative format)
+- **Message Type**: Messages may be received as byte arrays instead of strings
+- **Impact**: If message format changes, embedProc may fail to extract URLs and treat entire message as content
+- **Solution**: Updated `extractFileUrl()` method to handle multiple JSON formats and `embedProc()` to handle byte arrays
+- **Detection**: Look for warnings like "Failed to parse message as JSON" in logs
+- **Fallback**: If format is unrecognized, embedProc treats the entire message as direct file content
+
 ## RabbitMQ Message Content Type Warning
 
 - **Issue**: You may see warnings like:
