@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Configuration
 @Profile("cloud")
-
 public class ScdfStreamProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
@@ -52,7 +51,7 @@ public class ScdfStreamProcessor {
 
     @PostConstruct
     public void logBeanCreation() {
-        logger.info("ScdfStreamProcessor bean created.");
+        logger.info("ScdfStreamProcessor bean created for SCDF deployment");
     }
 
     private List<String> chunkText(String text, int chunkSize, int overlap) {
@@ -336,16 +335,17 @@ public class ScdfStreamProcessor {
         }
     }
 
-    @Bean("embedProc")
+    @Bean
     public Consumer<String> embedProc() {
         logger.info("Creating embedProc function bean");
         return message -> {
-            logger.info("embedProc function invoked with message: {}", message != null ? message.substring(0, Math.min(50, message.length())) + "..." : "null");
             try {
                 if (message == null || message.trim().isEmpty()) {
                     logger.warn("Received empty message, skipping...");
                     return;
                 }
+
+                logger.info("embedProc function invoked with message: {}", message.substring(0, Math.min(50, message.length())) + "...");
 
                 // Extract file URL from the message
                 String fileUrl = extractFileUrl(message);
@@ -381,9 +381,10 @@ public class ScdfStreamProcessor {
                 }
                 
                 logger.info("embedProc function completed successfully");
+                
             } catch (Exception e) {
                 logger.error("Error processing document: {}", e.getMessage(), e);
-                //throw new RuntimeException("Failed to process document", e);
+                // Don't throw exception to allow message acknowledgment
             }
         };
     }
