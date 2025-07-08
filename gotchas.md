@@ -84,6 +84,22 @@ After adding, rebuild your project.
   - If disabled, startup reporting will be skipped (no error)
   - Verify RabbitMQ service binding in Cloud Foundry for cloud deployments
 
+## Spring Cloud Function Startup Warning
+
+- **Issue**: During application startup, you may see warnings like:
+  ```
+  WARN o.s.c.f.c.c.BeanFactoryAwareFunctionRegistry - Failed to locate function 'embedProc' for function definition 'embedProc'. Returning null.
+  ```
+
+- **Root Cause**: This is a timing issue during Spring Cloud Function initialization. The function registry tries to locate the function before it's fully registered in the application context.
+
+- **Impact**: This is a **false positive** - the function works correctly despite the warning. You can see successful processing in the logs:
+  - "Successfully fetched WebHDFS content, length: 281936 characters"
+  - "Generated 52 chunks from file content"
+  - "Successfully stored embedding for text preview: '...'"
+
+- **Solution**: No action required. This is a known behavior in Spring Cloud Function applications and doesn't affect functionality.
+
 ## SCDF Stream Processing Issues
 
 - **Function Binding Mismatch:**
@@ -111,3 +127,21 @@ After adding, rebuild your project.
     - Preserves spaces as `%20` for WebHDFS compatibility
     - Only fixes double-encoded parts, doesn't decode valid URL encoding
     - Uses `URI` instead of `String` in `RestTemplate` to prevent re-encoding of already-encoded URLs
+
+## RabbitMQ Message Content Type Warning
+
+- **Issue**: You may see warnings like:
+  ```
+  WARN o.s.a.s.c.Jackson2JsonMessageConverter : Could not convert incoming message with content-type [text/plain], 'json' keyword missing.
+  ```
+
+- **Root Cause**: The `RabbitMQMetricsPublisher` was sending JSON messages with `content-type: text/plain` instead of `application/json`. This causes issues when other services try to consume these messages using `Jackson2JsonMessageConverter`.
+
+- **Impact**: The warning appears in consuming services, but metrics publishing still works. However, it can cause parsing issues in monitoring applications.
+
+- **Solution**: Fixed in `RabbitMQMetricsPublisher` to explicitly set `content-type: application/json` when sending messages. This ensures proper JSON message handling by consuming services.
+
+- **Technical Details**: 
+  - Messages are now sent using `Message` objects with explicit `MessageProperties`
+  - Content type is set to `"application/json"` before sending
+  - This prevents the `Jackson2JsonMessageConverter` warning in consuming services

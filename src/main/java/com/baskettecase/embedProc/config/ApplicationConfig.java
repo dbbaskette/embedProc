@@ -34,13 +34,20 @@ public class ApplicationConfig {
         RestTemplate restTemplate = new RestTemplate();
         
         // Configure to follow redirects (important for WebHDFS)
-        restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {
-            @Override
-            protected void prepareConnection(java.net.HttpURLConnection connection, String httpMethod) throws java.io.IOException {
-                super.prepareConnection(connection, httpMethod);
-                connection.setInstanceFollowRedirects(true);
-            }
-        });
+        org.springframework.http.client.SimpleClientHttpRequestFactory requestFactory = 
+            new org.springframework.http.client.SimpleClientHttpRequestFactory() {
+                @Override
+                protected void prepareConnection(java.net.HttpURLConnection connection, String httpMethod) throws java.io.IOException {
+                    super.prepareConnection(connection, httpMethod);
+                    connection.setInstanceFollowRedirects(true);
+                }
+            };
+        
+        // Performance optimizations
+        requestFactory.setConnectTimeout(10000); // 10 seconds
+        requestFactory.setReadTimeout(30000);    // 30 seconds
+        
+        restTemplate.setRequestFactory(requestFactory);
         
         return restTemplate;
     }

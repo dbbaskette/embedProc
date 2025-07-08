@@ -86,15 +86,38 @@ public class EmbeddingService {
         int successCount = 0;
         int errorCount = 0;
 
-        for (String text : texts) {
+        // Process in batches for better performance
+        int batchSize = 10; // Process 10 embeddings at a time
+        for (int i = 0; i < texts.size(); i += batchSize) {
+            int endIndex = Math.min(i + batchSize, texts.size());
+            List<String> batch = texts.subList(i, endIndex);
+            
             try {
-                storeEmbedding(text);
-                successCount++;
+                // Convert batch to documents
+                List<Document> documents = batch.stream()
+                    .map(text -> new Document(text))
+                    .toList();
+                
+                // Store batch in vector store
+                vectorStore.add(documents);
+                
+                successCount += batch.size();
+                embeddingProcessedCounter.increment(batch.size());
+                
+                logger.debug("Successfully stored batch of {} embeddings", batch.size());
+                
             } catch (Exception e) {
-                errorCount++;
-                logger.error("Failed to store embedding in batch processing: {}", e.getMessage());
-                // Continue processing other texts
+                errorCount += batch.size();
+                embeddingErrorCounter.increment(batch.size());
+                logger.error("Failed to store batch of embeddings: {}", e.getMessage());
+                // Continue processing other batches
             }
+        }
+
+        // Update monitor service
+        if (monitorService != null) {
+            monitorService.incrementProcessedChunks(successCount);
+            monitorService.incrementErrors(errorCount);
         }
 
         logger.info("Batch processing completed. Success: {}, Errors: {}", successCount, errorCount);

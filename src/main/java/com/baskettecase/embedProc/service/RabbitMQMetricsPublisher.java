@@ -53,7 +53,15 @@ public class RabbitMQMetricsPublisher implements MetricsPublisher {
 
         try {
             String jsonMessage = objectMapper.writeValueAsString(monitoringData);
-            amqpTemplate.convertAndSend(queueName, jsonMessage);
+            
+            // Create message with proper content type
+            org.springframework.amqp.core.Message message = new org.springframework.amqp.core.Message(
+                jsonMessage.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                new org.springframework.amqp.core.MessageProperties()
+            );
+            message.getMessageProperties().setContentType("application/json");
+            
+            amqpTemplate.send(queueName, message);
             
             // Reset circuit breaker on success
             if (circuitBreakerOpen.get()) {

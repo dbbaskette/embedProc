@@ -267,8 +267,9 @@ public class ScdfStreamProcessor {
 
                 logger.info("Processing file content of length: {} characters", fileContent.length());
                 
-                // Split the text into chunks (1000 words per chunk, 100 words overlap)
-                List<String> chunks = chunkText(fileContent, 1000, 100);
+                // Split the text into chunks (2000 characters per chunk, 200 characters overlap)
+                // Optimized for performance: larger chunks = fewer API calls
+                List<String> chunks = chunkText(fileContent, 2000, 200);
                 
                 if (chunks.isEmpty()) {
                     logger.warn("No chunks generated from the file content");
@@ -277,16 +278,18 @@ public class ScdfStreamProcessor {
 
                 logger.info("Generated {} chunks from file content", chunks.size());
                 
-                // Store embeddings using the EmbeddingService
+                // Store embeddings using batch processing for better performance
                 embeddingService.storeEmbeddings(chunks);
                 
                 // Optionally run query after embedding if queryText is set and hasn't run yet
-                if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
+                if (queryText != null && !queryText.trim().isEmpty() && queryRun.compareAndSet(false, true)) {
+                    logger.info("Running vector query: {}", queryText);
                     vectorQueryProcessor.runQuery(queryText, 5);
                 }
+                
             } catch (Exception e) {
                 logger.error("Error processing message: {}", e.getMessage(), e);
-                throw new RuntimeException("Failed to process message", e);
+                throw e;
             }
         };
     }

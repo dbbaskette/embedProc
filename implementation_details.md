@@ -125,10 +125,61 @@ Use these logs to confirm that your processor is producing and sending embedding
 - The project requires `spring-boot-starter-web` as a dependency. This ensures that a `RestClient.Builder` bean is auto-configured, which is necessary for Spring AI's Ollama integration. Without this dependency, the application will fail to start with an UnsatisfiedDependencyException due to the missing bean.
 
 - If you see an error similar to:
+  ```
+  Parameter 1 of method ollamaApi in org.springframework.ai.autoconfigure.ollama.OllamaAutoConfiguration required a bean of type 'org.springframework.web.client.RestClient$Builder' that could not be found.
+  ```
+  This means the `spring-boot-starter-web` dependency is missing from your `pom.xml`. This starter is required for Spring Boot to auto-configure the `RestClient.Builder` bean needed by Spring AI's Ollama integration.
 
-  > Parameter 1 of method ollamaApi in org.springframework.ai.autoconfigure.ollama.OllamaAutoConfiguration required a bean of type 'org.springframework.web.client.RestClient$Builder' that could not be found.
+**Solution:**
+Add the following to your dependencies:
 
-  Ensure that `spring-boot-starter-web` is included in your `pom.xml`.
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
+After adding, rebuild your project.
+
+## Performance Optimizations
+
+### Batch Processing
+- **Embedding Storage**: Processed in batches of 10 embeddings at a time instead of individual storage
+- **Vector Store Operations**: Uses `vectorStore.add(List<Document>)` for bulk operations
+- **Performance Impact**: Reduces database round trips by ~90%
+
+### Chunk Size Optimization
+- **Chunk Size**: Increased from 1000 to 2000 characters per chunk
+- **Overlap**: Increased from 100 to 200 characters for better context preservation
+- **Performance Impact**: Fewer API calls to embedding service (~50% reduction)
+
+### Database Connection Pooling
+- **HikariCP Configuration**: 
+  - Maximum pool size: 20 connections
+  - Minimum idle: 5 connections
+  - Connection timeout: 30 seconds
+  - Idle timeout: 10 minutes
+  - Max lifetime: 30 minutes
+- **Performance Impact**: Reduces connection overhead and improves concurrent processing
+
+### HTTP Request Optimization
+- **Connection Timeout**: 10 seconds for initial connection
+- **Read Timeout**: 30 seconds for file content retrieval
+- **Redirect Handling**: Enabled for WebHDFS compatibility
+- **Performance Impact**: Faster file fetching with proper timeout handling
+
+### Async Processing Configuration
+- **Core Thread Pool**: 4 threads for parallel processing
+- **Maximum Threads**: 8 threads for burst processing
+- **Queue Capacity**: 100 tasks for buffering
+- **Performance Impact**: Enables parallel processing of multiple files
+
+### Monitoring and Metrics
+- **Prometheus Metrics**: Enabled for performance monitoring
+- **Processing Rate Tracking**: Real-time monitoring of embedding generation rate
+- **Error Rate Monitoring**: Track and alert on processing failures
+- **Performance Impact**: Better visibility into bottlenecks and optimization opportunities
 
 ## Dependency Location
 
