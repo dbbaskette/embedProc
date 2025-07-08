@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
+import com.baskettecase.embedProc.service.MonitorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +22,14 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Semaphore;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 @Configuration
 @Profile("cloud")
@@ -31,24 +40,35 @@ public class ScdfStreamProcessor {
     
     private final EmbeddingService embeddingService;
     private final VectorQueryProcessor vectorQueryProcessor;
+    private final MonitorService monitorService;
     private final String queryText;
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
     private final int maxWordsPerChunk;
     private final int overlapWords;
+    
+    // Work limiting to prevent single instance from taking too much work
+    private final AtomicInteger activeProcessingCount = new AtomicInteger(0);
+    private final Semaphore processingSemaphore;
+    private final int maxConcurrentFiles;
 
     @Autowired
     public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, 
+                             MonitorService monitorService,
                              @Value("${app.query.text:}") String queryText,
                              @Value("${app.chunking.max-words-per-chunk:300}") int maxWordsPerChunk,
                              @Value("${app.chunking.overlap-words:30}") int overlapWords,
+                             @Value("${app.processing.max-concurrent-files:2}") int maxConcurrentFiles,
                              ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.embeddingService = embeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
+        this.monitorService = monitorService;
         this.queryText = queryText;
         this.maxWordsPerChunk = maxWordsPerChunk;
         this.overlapWords = overlapWords;
+        this.maxConcurrentFiles = maxConcurrentFiles;
+        this.processingSemaphore = new Semaphore(maxConcurrentFiles);
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
     }
@@ -317,9 +337,155 @@ public class ScdfStreamProcessor {
         }
     }
 
+    /**
+     * Download file to temp storage and process in streaming fashion
+     * This reduces memory usage for large files
+     */
+    private File downloadFileToTemp(String fileUrl) {
+        try {
+            // Create temp file
+            File tempFile = File.createTempFile("embedproc_", ".txt");
+            tempFile.deleteOnExit(); // Clean up on JVM exit
+            
+            logger.info("Downloading file to temp: {} -> {}", fileUrl, tempFile.getAbsolutePath());
+            
+            // Check if this is a WebHDFS URL
+            boolean isWebHdfs = fileUrl.contains("/webhdfs/");
+            
+            if (isWebHdfs) {
+                // WebHDFS download
+                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                headers.set("User-Agent", "embedProc/1.0");
+                org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+                java.net.URI uri = new java.net.URI(fileUrl);
+                
+                ResponseEntity<byte[]> response = restTemplate.exchange(uri, org.springframework.http.HttpMethod.GET, entity, byte[].class);
+                
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    byte[] content = response.getBody();
+                    Files.write(tempFile.toPath(), content);
+                    logger.info("Downloaded {} bytes to temp file", content.length);
+                    return tempFile;
+                } else {
+                    logger.error("Failed to download WebHDFS file. Status: {}", response.getStatusCode());
+                    return null;
+                }
+            } else {
+                // Regular HTTP download
+                ResponseEntity<byte[]> response = restTemplate.getForEntity(fileUrl, byte[].class);
+                
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    byte[] content = response.getBody();
+                    Files.write(tempFile.toPath(), content);
+                    logger.info("Downloaded {} bytes to temp file", content.length);
+                    return tempFile;
+                } else {
+                    logger.error("Failed to download file. Status: {}", response.getStatusCode());
+                    return null;
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error downloading file to temp: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Process file in streaming fashion from temp storage with real-time metrics
+     */
+    @Async
+    public CompletableFuture<Void> processFileStreamingFromTemp(String fileUrl) {
+        File tempFile = null;
+        try {
+            logger.info("Starting streaming temp file processing for: {}", fileUrl);
+            
+            // Download file to temp storage
+            tempFile = downloadFileToTemp(fileUrl);
+            if (tempFile == null || !tempFile.exists()) {
+                logger.warn("Failed to download file to temp storage: {}", fileUrl);
+                return CompletableFuture.completedFuture(null);
+            }
+            
+            logger.info("Processing temp file: {} ({} bytes)", tempFile.getAbsolutePath(), tempFile.length());
+            
+            // Read file content from temp storage
+            String fileContent = new String(Files.readAllBytes(tempFile.toPath()));
+            logger.info("Processing document of length: {} characters from temp file", fileContent.length());
+            
+            // Process in streaming batches with real-time metrics
+            int streamingChunkSize = 200; // Smaller batches for better responsiveness
+            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
+            logger.info("Created {} total chunks from temp file", allChunks.size());
+            
+            if (allChunks.isEmpty()) {
+                logger.warn("No chunks generated from the temp file");
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // Update total chunks count for this file
+            if (monitorService != null) {
+                monitorService.incrementTotalChunks(allChunks.size());
+                logger.info("Updated total chunks count: {} for file: {}", allChunks.size(), fileUrl);
+            }
+
+            // Process chunks in streaming batches with real-time progress updates
+            int totalBatches = (allChunks.size() + streamingChunkSize - 1) / streamingChunkSize;
+            int processedChunks = 0;
+            
+            for (int i = 0; i < allChunks.size(); i += streamingChunkSize) {
+                int endIndex = Math.min(i + streamingChunkSize, allChunks.size());
+                List<String> batch = allChunks.subList(i, endIndex);
+                int batchNumber = (i / streamingChunkSize) + 1;
+                
+                logger.info("Processing batch {}/{} (chunks {}-{}) for file: {}", 
+                    batchNumber, totalBatches, i + 1, endIndex, fileUrl);
+                
+                // Store embeddings for this batch using parallel processing
+                embeddingService.storeEmbeddingsParallel(batch);
+                
+                // Update progress metrics
+                processedChunks += batch.size();
+                if (monitorService != null) {
+                    // Real-time progress update
+                    logger.info("Progress: {}/{} chunks processed ({:.1f}%) for file: {}", 
+                        processedChunks, allChunks.size(), 
+                        (processedChunks * 100.0) / allChunks.size(), fileUrl);
+                }
+                
+                // Small delay to prevent overwhelming the system
+                Thread.sleep(25);
+            }
+            
+            // Optionally run query after embedding if queryText is set and hasn't run yet
+            if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
+                vectorQueryProcessor.runQuery(queryText, 5);
+            }
+            
+            logger.info("Streaming temp file processing completed successfully for file: {} ({} chunks)", 
+                       fileUrl, allChunks.size());
+            
+        } catch (Exception e) {
+            logger.error("Error in streaming temp file processing for file {}: {}", fileUrl, e.getMessage(), e);
+        } finally {
+            // Clean up temp file
+            if (tempFile != null && tempFile.exists()) {
+                try {
+                    tempFile.delete();
+                    logger.info("Cleaned up temp file: {}", tempFile.getAbsolutePath());
+                } catch (Exception e) {
+                    logger.warn("Failed to clean up temp file: {}", e.getMessage());
+                }
+            }
+        }
+        
+        return CompletableFuture.completedFuture(null);
+    }
+
     @Bean
     public Consumer<String> embedProc() {
-        logger.info("Creating embedProc function bean");
+        logger.info("Creating embedProc function bean with work limiting: max {} concurrent files", 
+                   maxConcurrentFiles);
         return message -> {
             try {
                 if (message == null || message.trim().isEmpty()) {
@@ -327,7 +493,17 @@ public class ScdfStreamProcessor {
                     return;
                 }
 
-                logger.info("embedProc function invoked with message: {}", message.substring(0, Math.min(50, message.length())) + "...");
+                // Check if we're already processing too much work
+                int currentProcessing = activeProcessingCount.get();
+                if (currentProcessing >= maxConcurrentFiles) {
+                    logger.warn("Instance at capacity ({} active), rejecting message to allow other instances to process", currentProcessing);
+                    // Don't acknowledge the message - let it go to another instance
+                    return;
+                }
+
+                logger.info("embedProc function invoked with message: {} (active processing: {}/{})", 
+                           message.substring(0, Math.min(50, message.length())) + "...", 
+                           currentProcessing, maxConcurrentFiles);
 
                 // Extract file URL from the message
                 String fileUrl = extractFileUrl(message);
@@ -336,12 +512,26 @@ public class ScdfStreamProcessor {
                     return;
                 }
 
-                logger.info("Extracted file URL: {}. Processing asynchronously to allow immediate acknowledgment.", fileUrl);
-                
-                // Process the entire file asynchronously - this allows immediate acknowledgment
-                processFileAsync(fileUrl);
-                
-                logger.info("embedProc function completed successfully - file processing asynchronously");
+                // Try to acquire processing permit
+                if (!processingSemaphore.tryAcquire()) {
+                    logger.warn("No processing permits available, rejecting message to allow other instances to process");
+                    return;
+                }
+
+                try {
+                    activeProcessingCount.incrementAndGet();
+                    logger.info("Extracted file URL: {}. Processing asynchronously (active: {}/{})", 
+                               fileUrl, activeProcessingCount.get(), maxConcurrentFiles);
+                    
+                    // Process the file asynchronously with work limiting
+                    processFileStreamingFromTemp(fileUrl);
+                    
+                    logger.info("embedProc function completed successfully - file processing asynchronously");
+                    
+                } finally {
+                    activeProcessingCount.decrementAndGet();
+                    processingSemaphore.release();
+                }
                 
             } catch (Exception e) {
                 logger.error("Error processing document: {}", e.getMessage(), e);
@@ -373,8 +563,8 @@ public class ScdfStreamProcessor {
                 return CompletableFuture.completedFuture(null);
             }
 
-            // Store embeddings using the EmbeddingService
-            embeddingService.storeEmbeddings(chunks);
+            // Store embeddings using the EmbeddingService with parallel processing
+            embeddingService.storeEmbeddingsParallel(chunks);
             
             // Optionally run query after embedding if queryText is set and hasn't run yet
             if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
@@ -385,6 +575,124 @@ public class ScdfStreamProcessor {
             
         } catch (Exception e) {
             logger.error("Error in async file processing for file {}: {}", fileUrl, e.getMessage(), e);
+        }
+        
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Process file in streaming fashion to reduce memory usage and improve responsiveness
+     */
+    @Async
+    public CompletableFuture<Void> processFileStreaming(String fileUrl) {
+        try {
+            logger.info("Starting streaming file processing for: {}", fileUrl);
+            
+            // Fetch file content
+            String fileContent = fetchFileContent(fileUrl);
+            if (fileContent == null || fileContent.isEmpty()) {
+                logger.warn("No content found in file: {}", fileUrl);
+                return CompletableFuture.completedFuture(null);
+            }
+
+            logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
+            
+            // Process in smaller chunks for better responsiveness
+            int streamingChunkSize = 500; // Process 500 chunks at a time
+            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
+            logger.info("Created {} total chunks from file: {}", allChunks.size(), fileUrl);
+            
+            if (allChunks.isEmpty()) {
+                logger.warn("No chunks generated from the input text");
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // Process chunks in streaming batches
+            for (int i = 0; i < allChunks.size(); i += streamingChunkSize) {
+                int endIndex = Math.min(i + streamingChunkSize, allChunks.size());
+                List<String> batch = allChunks.subList(i, endIndex);
+                
+                logger.info("Processing batch {}/{} (chunks {}-{})", 
+                    (i / streamingChunkSize) + 1, 
+                    (allChunks.size() + streamingChunkSize - 1) / streamingChunkSize,
+                    i + 1, endIndex);
+                
+                // Store embeddings for this batch
+                embeddingService.storeEmbeddingsParallel(batch);
+                
+                // Small delay to prevent overwhelming the system
+                Thread.sleep(100);
+            }
+            
+            // Optionally run query after embedding if queryText is set and hasn't run yet
+            if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
+                vectorQueryProcessor.runQuery(queryText, 5);
+            }
+            
+            logger.info("Streaming file processing completed successfully for file: {}", fileUrl);
+            
+        } catch (Exception e) {
+            logger.error("Error in streaming file processing for file {}: {}", fileUrl, e.getMessage(), e);
+        }
+        
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Process file with work limiting to prevent single instance from taking too much work
+     */
+    @Async
+    public CompletableFuture<Void> processFileWithLimiting(String fileUrl) {
+        try {
+            logger.info("Starting work-limited file processing for: {}", fileUrl);
+            
+            // Fetch file content
+            String fileContent = fetchFileContent(fileUrl);
+            if (fileContent == null || fileContent.isEmpty()) {
+                logger.warn("No content found in file: {}", fileUrl);
+                return CompletableFuture.completedFuture(null);
+            }
+
+            logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
+            
+            // Enhanced chunking with semantic boundaries
+            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
+            logger.info("Created {} chunks from file: {}", allChunks.size(), fileUrl);
+            
+            if (allChunks.isEmpty()) {
+                logger.warn("No chunks generated from the input text");
+                return CompletableFuture.completedFuture(null);
+            }
+
+            // Process chunks in smaller batches to be more responsive
+            int batchSize = 100; // Fixed batch size for consistency
+            int totalBatches = (allChunks.size() + batchSize - 1) / batchSize;
+            
+            logger.info("Processing {} chunks in {} batches of size {}", allChunks.size(), totalBatches, batchSize);
+            
+            for (int i = 0; i < allChunks.size(); i += batchSize) {
+                int endIndex = Math.min(i + batchSize, allChunks.size());
+                List<String> batch = allChunks.subList(i, endIndex);
+                
+                logger.info("Processing batch {}/{} (chunks {}-{})", 
+                    (i / batchSize) + 1, totalBatches, i + 1, endIndex);
+                
+                // Store embeddings for this batch using parallel processing
+                embeddingService.storeEmbeddingsParallel(batch);
+                
+                // Small delay to prevent overwhelming the system
+                Thread.sleep(50);
+            }
+            
+            // Optionally run query after embedding if queryText is set and hasn't run yet
+            if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
+                vectorQueryProcessor.runQuery(queryText, 5);
+            }
+            
+            logger.info("Work-limited file processing completed successfully for file: {}", fileUrl);
+            
+        } catch (Exception e) {
+            logger.error("Error in work-limited file processing for file {}: {}", fileUrl, e.getMessage(), e);
         }
         
         return CompletableFuture.completedFuture(null);
