@@ -150,8 +150,12 @@ public class ScdfStreamProcessor {
             return chunks;
         }
         
-        int startIndex = 0;
-        while (startIndex < words.length) {
+        int stepSize = maxWordsPerChunk - overlapWords;
+        if (stepSize <= 0) {
+            stepSize = maxWordsPerChunk / 2; // Fallback if overlap is too large
+        }
+        
+        for (int startIndex = 0; startIndex < words.length; startIndex += stepSize) {
             int endIndex = Math.min(startIndex + maxWordsPerChunk, words.length);
             
             // Build the chunk
@@ -165,11 +169,8 @@ public class ScdfStreamProcessor {
             
             chunks.add(chunkBuilder.toString());
             
-            // Calculate next start index with proper overlap
-            if (endIndex < words.length) {
-                // Move forward by (chunk size - overlap) to create proper overlap
-                startIndex = endIndex - overlapWords;
-            } else {
+            // If we've reached the end, break
+            if (endIndex >= words.length) {
                 break;
             }
         }
