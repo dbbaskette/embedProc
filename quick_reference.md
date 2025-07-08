@@ -37,6 +37,7 @@
 ### Enhanced Chunking Configuration
 - `app.chunking.max-words-per-chunk`: Maximum words per chunk (800-1200 recommended for Q&A)
 - `app.chunking.overlap-words`: Overlap words between chunks for context continuity
+- `app.chunking.min-meaningful-words`: Minimum meaningful words per chunk (default: 100)
 
 ## Deployment Profiles
 
@@ -60,9 +61,10 @@
 ### Enhanced Text Chunking
 - **Semantic boundaries**: Paragraph-based splitting preserves document structure
 - **Configurable size**: 1000 words per chunk (default, configurable)
-- **Minimum size**: 100 words minimum to ensure meaningful context for Q&A
+- **Minimum size**: Configurable meaningful words minimum (default: 100, ignoring excessive whitespace)
 - **Overlap**: 150 words overlap maintains context continuity
 - **Better Q&A context**: Larger chunks provide more comprehensive context for question answering
+- **Whitespace filtering**: Ignores excessive spaces and empty lines in word counting
 
 ### Message Processing
 - **Multiple formats**: JSON, plain text, byte arrays

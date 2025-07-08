@@ -106,21 +106,24 @@ The application now uses an enhanced chunking strategy that implements the recom
 
 #### Chunking Algorithm
 1. **Paragraph detection**: Split text on double newlines to identify paragraphs
-2. **Paragraph combination**: Combine short paragraphs to create meaningful chunks of at least 100 words
+2. **Paragraph combination**: Combine short paragraphs to create meaningful chunks of at least 100 meaningful words
 3. **Size management**: Build chunks up to the maximum word limit while preserving paragraph boundaries
-4. **Quality filtering**: Only include chunks with at least 100 words to ensure meaningful context for Q&A
+4. **Quality filtering**: Only include chunks with at least 100 meaningful words (ignoring excessive whitespace)
 5. **Context preservation**: Maintains document structure and semantic meaning
+6. **Meaningful word counting**: Filters out whitespace-only strings and counts only words with actual content
 
 #### Configuration Options
 ```properties
 # Enhanced chunking configuration
 app.chunking.max-words-per-chunk=1000  # Words per chunk (800-1200 recommended for Q&A)
 app.chunking.overlap-words=150         # Overlap words between chunks
+app.chunking.min-meaningful-words=100  # Minimum meaningful words per chunk
 ```
 
 #### Benefits
 - **Better Q&A context**: Larger chunks provide more comprehensive context for question answering
-- **Meaningful content**: Minimum 100-word requirement ensures chunks contain substantial information
+- **Meaningful content**: Minimum 100 meaningful words ensures chunks contain substantial information
+- **Whitespace filtering**: Ignores excessive spaces and empty lines in word counting
 - **Context preservation**: Overlap maintains continuity between chunks
 - **Semantic integrity**: Paragraph-based splitting preserves meaning
 - **Configurable**: Easy to tune for different document types and use cases

@@ -30,9 +30,11 @@
 ## Enhanced Chunking Strategy
 
 ### Chunk Size Considerations
-- **Issue**: Very small chunks (< 100 words) provide poor context for Q&A
-- **Solution**: Default 1000 words with 150-word overlap and 100-word minimum provides better Q&A context
+- **Issue**: Very small chunks (< configurable minimum meaningful words) provide poor context for Q&A
+- **Solution**: Default 1000 words with 150-word overlap and configurable meaningful word minimum provides better Q&A context
 - **Recommendation**: Use 800-1200 words for optimal Q&A results
+- **Whitespace handling**: Algorithm ignores excessive spaces and empty lines in word counting
+- **Configurable minimum**: Set `app.chunking.min-meaningful-words` to adjust minimum chunk size
 
 ### Paragraph Boundary Detection
 - **Issue**: Documents without clear paragraph breaks may create very large chunks

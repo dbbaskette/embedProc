@@ -47,6 +47,7 @@ public class ScdfStreamProcessor {
     private final RestTemplate restTemplate;
     private final int maxWordsPerChunk;
     private final int overlapWords;
+    private final int minMeaningfulWords;
     
     // Work limiting to prevent single instance from taking too much work
     private final AtomicInteger activeProcessingCount = new AtomicInteger(0);
@@ -59,6 +60,7 @@ public class ScdfStreamProcessor {
                              @Value("${app.query.text:}") String queryText,
                              @Value("${app.chunking.max-words-per-chunk:1000}") int maxWordsPerChunk,
                              @Value("${app.chunking.overlap-words:150}") int overlapWords,
+                             @Value("${app.chunking.min-meaningful-words:100}") int minMeaningfulWords,
                              @Value("${app.processing.max-concurrent-files:2}") int maxConcurrentFiles,
                              ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.embeddingService = embeddingService;
@@ -67,6 +69,7 @@ public class ScdfStreamProcessor {
         this.queryText = queryText;
         this.maxWordsPerChunk = maxWordsPerChunk;
         this.overlapWords = overlapWords;
+        this.minMeaningfulWords = minMeaningfulWords;
         this.maxConcurrentFiles = maxConcurrentFiles;
         this.processingSemaphore = new Semaphore(maxConcurrentFiles);
         this.objectMapper = objectMapper;
@@ -158,13 +161,13 @@ public class ScdfStreamProcessor {
                 continue;
             }
             
-            String[] words = paragraph.trim().split("\\s+");
-            int paragraphWordCount = words.length;
+            // Count meaningful words (ignore excessive whitespace)
+            int paragraphWordCount = countMeaningfulWords(paragraph);
             
             // If adding this paragraph would exceed max chunk size, finalize current chunk
             if (currentWordCount + paragraphWordCount > maxWordsPerChunk && currentWordCount > 0) {
                 String chunk = currentChunkBuilder.toString().trim();
-                if (chunk.split("\\s+").length >= 100) { // Increased minimum to 100 words
+                if (countMeaningfulWords(chunk) >= minMeaningfulWords) { // Use configurable minimum
                     chunks.add(chunk);
                 }
                 currentChunkBuilder.setLength(0);
@@ -181,7 +184,7 @@ public class ScdfStreamProcessor {
             // If current chunk is large enough, finalize it
             if (currentWordCount >= maxWordsPerChunk) {
                 String chunk = currentChunkBuilder.toString().trim();
-                if (chunk.split("\\s+").length >= 100) { // Increased minimum to 100 words
+                if (countMeaningfulWords(chunk) >= minMeaningfulWords) { // Use configurable minimum
                     chunks.add(chunk);
                 }
                 currentChunkBuilder.setLength(0);
@@ -192,12 +195,34 @@ public class ScdfStreamProcessor {
         // Add remaining content as final chunk if it's substantial
         if (currentWordCount > 0) {
             String chunk = currentChunkBuilder.toString().trim();
-            if (chunk.split("\\s+").length >= 100) { // Increased minimum to 100 words
+            if (countMeaningfulWords(chunk) >= minMeaningfulWords) { // Use configurable minimum
                 chunks.add(chunk);
             }
         }
         
         return chunks;
+    }
+    
+    /**
+     * Count meaningful words, ignoring excessive whitespace and empty lines
+     */
+    private int countMeaningfulWords(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return 0;
+        }
+        
+        // Split into words and filter out empty strings and whitespace-only strings
+        String[] words = text.trim().split("\\s+");
+        int meaningfulWordCount = 0;
+        
+        for (String word : words) {
+            // Only count words that have actual content (not just spaces, punctuation, etc.)
+            if (word != null && !word.trim().isEmpty() && word.matches(".*[a-zA-Z0-9].*")) {
+                meaningfulWordCount++;
+            }
+        }
+        
+        return meaningfulWordCount;
     }
     
 
@@ -555,17 +580,17 @@ public class ScdfStreamProcessor {
             
             // Enhanced chunking with semantic boundaries
             List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-            logger.info("Created {} chunks from file: {} (avg {} words per chunk)", 
+            logger.info("Created {} chunks from file: {} (avg {} meaningful words per chunk)", 
                        allChunks.size(), fileUrl, 
                        allChunks.isEmpty() ? 0 : allChunks.stream()
-                           .mapToInt(chunk -> chunk.split("\\s+").length)
+                           .mapToInt(chunk -> countMeaningfulWords(chunk))
                            .average().orElse(0.0));
             
             // Log chunk quality statistics
             if (!allChunks.isEmpty()) {
-                int minWords = allChunks.stream().mapToInt(chunk -> chunk.split("\\s+").length).min().orElse(0);
-                int maxWords = allChunks.stream().mapToInt(chunk -> chunk.split("\\s+").length).max().orElse(0);
-                logger.info("Chunk quality - Min: {} words, Max: {} words, Target: {} words", 
+                int minWords = allChunks.stream().mapToInt(chunk -> countMeaningfulWords(chunk)).min().orElse(0);
+                int maxWords = allChunks.stream().mapToInt(chunk -> countMeaningfulWords(chunk)).max().orElse(0);
+                logger.info("Chunk quality - Min: {} meaningful words, Max: {} meaningful words, Target: {} words", 
                            minWords, maxWords, maxWordsPerChunk);
             }
             
@@ -611,7 +636,11 @@ public class ScdfStreamProcessor {
             // Process in smaller chunks for better responsiveness
             int streamingChunkSize = 500; // Process 500 chunks at a time
             List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-            logger.info("Created {} total chunks from file: {}", allChunks.size(), fileUrl);
+            logger.info("Created {} total chunks from file: {} (avg {} meaningful words per chunk)", 
+                       allChunks.size(), fileUrl,
+                       allChunks.isEmpty() ? 0 : allChunks.stream()
+                           .mapToInt(chunk -> countMeaningfulWords(chunk))
+                           .average().orElse(0.0));
             
             if (allChunks.isEmpty()) {
                 logger.warn("No chunks generated from the input text");
@@ -668,7 +697,11 @@ public class ScdfStreamProcessor {
             
             // Enhanced chunking with semantic boundaries
             List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-            logger.info("Created {} chunks from file: {}", allChunks.size(), fileUrl);
+            logger.info("Created {} chunks from file: {} (avg {} meaningful words per chunk)", 
+                       allChunks.size(), fileUrl,
+                       allChunks.isEmpty() ? 0 : allChunks.stream()
+                           .mapToInt(chunk -> countMeaningfulWords(chunk))
+                           .average().orElse(0.0));
             
             if (allChunks.isEmpty()) {
                 logger.warn("No chunks generated from the input text");
