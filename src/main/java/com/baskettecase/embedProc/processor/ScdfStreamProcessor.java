@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
 import jakarta.annotation.PostConstruct;
+import org.springframework.context.annotation.Profile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,8 @@ import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Configuration
+@Profile("cloud")
+
 public class ScdfStreamProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
@@ -333,10 +336,11 @@ public class ScdfStreamProcessor {
         }
     }
 
-    @Bean
+    @Bean("embedProc")
     public Consumer<String> embedProc() {
         logger.info("Creating embedProc function bean");
         return message -> {
+            logger.info("embedProc function invoked with message: {}", message != null ? message.substring(0, Math.min(50, message.length())) + "..." : "null");
             try {
                 if (message == null || message.trim().isEmpty()) {
                     logger.warn("Received empty message, skipping...");
@@ -375,6 +379,8 @@ public class ScdfStreamProcessor {
                 if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
                     vectorQueryProcessor.runQuery(queryText, 5);
                 }
+                
+                logger.info("embedProc function completed successfully");
             } catch (Exception e) {
                 logger.error("Error processing document: {}", e.getMessage(), e);
                 //throw new RuntimeException("Failed to process document", e);
