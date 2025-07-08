@@ -2,7 +2,6 @@ package com.baskettecase.embedProc.processor;
     
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
@@ -13,14 +12,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
 import jakarta.annotation.PostConstruct;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 
 @Configuration
 public class ScdfStreamProcessor {
@@ -338,7 +334,6 @@ public class ScdfStreamProcessor {
     }
 
     @Bean
-    @Profile("cloud")
     public Consumer<String> embedProc() {
         logger.info("Creating embedProc function bean");
         return message -> {

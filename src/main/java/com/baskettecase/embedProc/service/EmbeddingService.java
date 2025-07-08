@@ -3,8 +3,6 @@ package com.baskettecase.embedProc.service;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +33,6 @@ public class EmbeddingService {
         this.monitorService = monitorService;
     }
 
-    @Retryable(value = {Exception.class}, maxAttempts = 3, backoff = @Backoff(delay = 1000))
     public void storeEmbedding(String text) {
         try {
             if (text == null || text.trim().isEmpty()) {
@@ -66,11 +63,10 @@ public class EmbeddingService {
             logger.error("Failed to store embedding for text preview: '{}'. Error: {}", 
                     text != null ? text.substring(0, Math.min(text.length(), 50)) + "..." : "null", 
                     e.getMessage());
-            throw e;
+            // Don't throw exception - just log the error
         }
     }
 
-    @Retryable(value = {Exception.class}, maxAttempts = 3, backoff = @Backoff(delay = 1000))
     public void storeEmbeddings(List<String> texts) {
         if (texts == null || texts.isEmpty()) {
             logger.warn("Attempted to store empty text list, skipping");
@@ -109,7 +105,7 @@ public class EmbeddingService {
                 errorCount += batch.size();
                 embeddingErrorCounter.increment(batch.size());
                 logger.error("Failed to store batch of embeddings: {}", e.getMessage());
-                // Continue processing other batches
+                // Continue processing other batches - don't throw exception
             }
         }
 
