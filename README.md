@@ -174,6 +174,13 @@ curl -X POST http://localhost:9000 \
 | `app.processor.standalone.processed-directory` | Processed files location | `./data/processed_files` |
 | `app.processor.standalone.error-directory` | Error files location | `./data/error_files` |
 
+### Monitoring Configuration
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `app.monitoring.rabbitmq.enabled` | Enable RabbitMQ metrics publishing | `false` |
+| `app.monitoring.rabbitmq.queue-name` | RabbitMQ queue name for metrics | `embedproc.metrics` |
+
 ## 📊 Document Processing
 
 ### Text Chunking
@@ -198,6 +205,19 @@ curl -X POST http://localhost:9000 \
 ### Metrics
 - `embedding.processed.count` - Successfully processed embeddings
 - `embedding.error.count` - Failed embedding attempts
+
+### Instance Startup Reporting
+- **Automatic Reporting**: Each instance reports itself to metrics queue on startup
+- **Event-Driven**: Uses `ApplicationReadyEvent` to ensure app is fully initialized
+- **Instance Identification**: Unique instance IDs using `{appName}-{instanceIndex}` format
+- **Startup Message**: Publishes initial metrics with status "STARTED" and zero counters
+- **Error Resilience**: Startup reporting failures don't affect application startup
+
+### Distributed Monitoring
+- **RabbitMQ Integration**: Metrics published to `embedproc.metrics` queue
+- **Circuit Breaker**: Automatic recovery from RabbitMQ failures
+- **Cloud Profile**: Enabled by default in cloud deployments
+- **Local Development**: Can be enabled for testing with local RabbitMQ
 
 ### Logging
 ```properties

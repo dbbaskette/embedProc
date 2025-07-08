@@ -65,3 +65,21 @@ Add the following to your dependencies:
 ```
 
 After adding, rebuild your project.
+
+## Instance Startup Reporting Issues
+
+- **Startup Reporting Failures:**
+  - If RabbitMQ is unavailable during startup, the instance startup report will fail
+  - This failure is logged but does not prevent the application from starting
+  - Check logs for "Failed to report instance startup to metrics queue" messages
+  - The application will continue to function normally even if startup reporting fails
+
+- **Instance ID Generation:**
+  - Instance IDs are generated as `{appName}-{instanceIndex}`
+  - If `CF_INSTANCE_INDEX` or `INSTANCE_ID` environment variables are not set, defaults to "0"
+  - Ensure your Cloud Foundry deployment has proper instance indexing for unique identification
+
+- **Metrics Queue Configuration:**
+  - Startup reporting requires `app.monitoring.rabbitmq.enabled=true`
+  - If disabled, startup reporting will be skipped (no error)
+  - Verify RabbitMQ service binding in Cloud Foundry for cloud deployments

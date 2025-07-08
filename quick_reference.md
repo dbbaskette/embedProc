@@ -25,6 +25,34 @@ spring.ai.vectorstore.pgvector.table-name=embeddings
 - Success: `[VectorStoreService] Successfully stored embedding for text preview: '...'`
 - Error: `[VectorStoreService] Failed to store embedding for text preview: '...'. Error: <error message>`
 
+## Instance Startup Reporting
+
+**Automatic Behavior:**
+- Each instance reports itself to metrics queue on startup
+- Uses `ApplicationReadyEvent` to ensure app is fully initialized
+- Instance ID format: `{appName}-{instanceIndex}`
+
+**Configuration:**
+```properties
+# Enable RabbitMQ metrics publishing (cloud profile)
+app.monitoring.rabbitmq.enabled=true
+app.monitoring.rabbitmq.queue-name=embedproc.metrics
+```
+
+**Startup Message Format:**
+```json
+{
+  "instanceId": "embedProc-0",
+  "timestamp": "2025-01-03T10:30:00Z",
+  "totalChunks": 0,
+  "processedChunks": 0,
+  "errorCount": 0,
+  "processingRate": 0.0,
+  "uptime": "0h 0m",
+  "status": "STARTED"
+}
+```
+
 
 
 ## Required Dependencies

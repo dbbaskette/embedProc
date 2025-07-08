@@ -14,11 +14,11 @@ mvn clean package
 # Check if Docker is available and running
 if command -v docker &> /dev/null && docker info &> /dev/null; then
     echo "Building Docker image..."
-    docker login
+docker login
     pack build yourdockerhubuser/embedproc:latest \
-      --builder paketobuildpacks/builder-jammy-base \
-      --publish \
-      --platform linux/amd64,linux/arm64
+  --builder paketobuildpacks/builder-jammy-base \
+  --publish \
+  --platform linux/amd64,linux/arm64
     echo "Docker image built and published successfully"
 else
     echo "Docker not available, skipping container build"

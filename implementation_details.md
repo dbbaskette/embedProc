@@ -54,6 +54,13 @@ The application now includes comprehensive monitoring:
 - `embeddings.processed`: Counter of successfully processed embeddings
 - `embeddings.errors`: Counter of embedding processing errors
 
+### Instance Startup Reporting
+- **InstanceStartupReporter**: Automatically reports instance startup to metrics queue
+- **Event-driven**: Listens for `ApplicationReadyEvent` to ensure app is fully started
+- **Instance identification**: Uses app name + instance index for unique identification
+- **Startup message**: Publishes initial metrics with status "STARTED" and zero counters
+- **Error resilience**: Startup reporting failures don't affect application startup
+
 ### Health Checks
 - Custom health indicators for vector store connectivity
 - Actuator endpoints for monitoring application health

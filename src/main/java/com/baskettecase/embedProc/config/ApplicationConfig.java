@@ -6,6 +6,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Counter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Configuration
 public class ApplicationConfig {
@@ -25,5 +26,10 @@ public class ApplicationConfig {
         return Counter.builder("embeddings.errors")
                 .description("Number of embedding processing errors")
                 .register(meterRegistry);
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 } 
