@@ -251,39 +251,20 @@ public class ScdfStreamProcessor {
 
     private String extractFileUrl(String message) {
         try {
-            // Handle the specific format from textProc: "Processed file written to HDFS: http://..."
-            if (message != null && message.trim().startsWith("Processed file written to HDFS:")) {
-                String fileUrl = message.trim().substring("Processed file written to HDFS:".length()).trim();
-                
-                if (!fileUrl.isEmpty()) {
-                    // Fix WebHDFS URL encoding and add operation parameter
-                    fileUrl = fixWebHdfsUrl(fileUrl);
-                    logger.info("Extracted file URL: {}", fileUrl);
-                    return fileUrl;
-                }
-            }
-            
-            // Try to parse as JSON first (fallback for other formats)
+            // Parse message as JSON
             JsonNode jsonNode = objectMapper.readTree(message);
             
-            // Look for common field names that might contain the file URL
+            // Extract URL from the standardized JSON format
             String fileUrl = null;
-            if (jsonNode.has("fileUrl")) {
-                fileUrl = jsonNode.get("fileUrl").asText();
-            } else if (jsonNode.has("url")) {
+            if (jsonNode.has("url")) {
                 fileUrl = jsonNode.get("url").asText();
-            } else if (jsonNode.has("file_url")) {
-                fileUrl = jsonNode.get("file_url").asText();
-            } else if (jsonNode.has("content")) {
-                // If the message has a content field, use that directly
-                return jsonNode.get("content").asText();
             } else {
-                // If no recognized field, assume the entire message is the URL
-                fileUrl = message.trim();
+                logger.warn("No 'url' field found in message JSON");
+                return null;
             }
             
             if (fileUrl == null || fileUrl.trim().isEmpty()) {
-                logger.warn("No file URL found in message");
+                logger.warn("URL field is empty in message");
                 return null;
             }
             
@@ -293,10 +274,7 @@ public class ScdfStreamProcessor {
             return fileUrl;
             
         } catch (Exception e) {
-            logger.warn("Failed to parse message as expected format: {}", e.getMessage());
-            
-            // If all parsing fails, assume the message is the content itself
-            logger.warn("Message is not in expected format, treating as direct content");
+            logger.warn("Failed to parse message as JSON: {}", e.getMessage());
             return null;
         }
     }
