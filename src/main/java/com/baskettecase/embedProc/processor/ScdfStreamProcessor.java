@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
+import com.baskettecase.embedProc.service.ReferenceNumberEmbeddingService;
 import com.baskettecase.embedProc.service.MonitorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +40,13 @@ public class ScdfStreamProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
     
     private final EmbeddingService embeddingService;
+    private final ReferenceNumberEmbeddingService referenceNumberEmbeddingService;
     private final VectorQueryProcessor vectorQueryProcessor;
     private final MonitorService monitorService;
     private final String queryText;
+    private final boolean useReferenceNumbers;
+    private final Integer defaultRefnum1;
+    private final Integer defaultRefnum2;
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
@@ -55,18 +60,27 @@ public class ScdfStreamProcessor {
     private final int maxConcurrentFiles;
 
     @Autowired
-    public ScdfStreamProcessor(EmbeddingService embeddingService, VectorQueryProcessor vectorQueryProcessor, 
+    public ScdfStreamProcessor(EmbeddingService embeddingService,
+                             ReferenceNumberEmbeddingService referenceNumberEmbeddingService,
+                             VectorQueryProcessor vectorQueryProcessor, 
                              MonitorService monitorService,
                              @Value("${app.query.text:}") String queryText,
+                             @Value("${app.reference-numbers.enabled:false}") boolean useReferenceNumbers,
+                             @Value("${app.reference-numbers.default.refnum1:100001}") Integer defaultRefnum1,
+                             @Value("${app.reference-numbers.default.refnum2:200001}") Integer defaultRefnum2,
                              @Value("${app.chunking.max-words-per-chunk:1000}") int maxWordsPerChunk,
                              @Value("${app.chunking.overlap-words:150}") int overlapWords,
                              @Value("${app.chunking.min-meaningful-words:100}") int minMeaningfulWords,
                              @Value("${app.processing.max-concurrent-files:2}") int maxConcurrentFiles,
                              ObjectMapper objectMapper, RestTemplate restTemplate) {
         this.embeddingService = embeddingService;
+        this.referenceNumberEmbeddingService = referenceNumberEmbeddingService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.monitorService = monitorService;
         this.queryText = queryText;
+        this.useReferenceNumbers = useReferenceNumbers;
+        this.defaultRefnum1 = defaultRefnum1;
+        this.defaultRefnum2 = defaultRefnum2;
         this.maxWordsPerChunk = maxWordsPerChunk;
         this.overlapWords = overlapWords;
         this.minMeaningfulWords = minMeaningfulWords;
@@ -74,6 +88,11 @@ public class ScdfStreamProcessor {
         this.processingSemaphore = new Semaphore(maxConcurrentFiles);
         this.objectMapper = objectMapper;
         this.restTemplate = restTemplate;
+        
+        logger.info("ScdfStreamProcessor initialized with reference numbers: {}", useReferenceNumbers);
+        if (useReferenceNumbers) {
+            logger.info("Default reference numbers - refnum1: {}, refnum2: {}", defaultRefnum1, defaultRefnum2);
+        }
     }
 
     @PostConstruct
@@ -600,7 +619,26 @@ public class ScdfStreamProcessor {
             }
 
             // Store embeddings using the EmbeddingService with parallel processing
-            embeddingService.storeEmbeddingsParallel(allChunks);
+            if (useReferenceNumbers) {
+                // Extract reference numbers from file URL
+                ReferenceNumbers refNumbers = extractReferenceNumbersFromFileUrl(fileUrl);
+                Integer refnum1 = refNumbers != null ? refNumbers.refnum1 : defaultRefnum1;
+                Integer refnum2 = refNumbers != null ? refNumbers.refnum2 : defaultRefnum2;
+                
+                if (refNumbers != null) {
+                    logger.info("Using reference numbers from filename - refnum1: {}, refnum2: {}", refnum1, refnum2);
+                } else {
+                    logger.info("Using default reference numbers - refnum1: {}, refnum2: {}", refnum1, refnum2);
+                }
+                
+                // Convert to TextWithReferenceNumbers and use reference number service
+                List<ReferenceNumberEmbeddingService.TextWithReferenceNumbers> refNumberChunks = allChunks.stream()
+                    .map(text -> new ReferenceNumberEmbeddingService.TextWithReferenceNumbers(text, refnum1, refnum2))
+                    .collect(java.util.stream.Collectors.toList());
+                referenceNumberEmbeddingService.storeEmbeddingsWithReferenceNumbersParallel(refNumberChunks);
+            } else {
+                embeddingService.storeEmbeddingsParallel(allChunks);
+            }
             
             // Optionally run query after embedding if queryText is set and hasn't run yet
             if (queryText != null && !queryText.isBlank() && queryRun.compareAndSet(false, true)) {
@@ -658,7 +696,20 @@ public class ScdfStreamProcessor {
                     i + 1, endIndex);
                 
                 // Store embeddings for this batch
-                embeddingService.storeEmbeddingsParallel(batch);
+                if (useReferenceNumbers) {
+                    // Extract reference numbers from file URL
+                    ReferenceNumbers refNumbers = extractReferenceNumbersFromFileUrl(fileUrl);
+                    Integer refnum1 = refNumbers != null ? refNumbers.refnum1 : defaultRefnum1;
+                    Integer refnum2 = refNumbers != null ? refNumbers.refnum2 : defaultRefnum2;
+                    
+                    // Convert to TextWithReferenceNumbers and use reference number service
+                    List<ReferenceNumberEmbeddingService.TextWithReferenceNumbers> refNumberBatch = batch.stream()
+                        .map(text -> new ReferenceNumberEmbeddingService.TextWithReferenceNumbers(text, refnum1, refnum2))
+                        .collect(java.util.stream.Collectors.toList());
+                    referenceNumberEmbeddingService.storeEmbeddingsWithReferenceNumbersParallel(refNumberBatch);
+                } else {
+                    embeddingService.storeEmbeddingsParallel(batch);
+                }
                 
                 // Small delay to prevent overwhelming the system
                 Thread.sleep(100);
@@ -722,7 +773,15 @@ public class ScdfStreamProcessor {
                     (i / batchSize) + 1, totalBatches, i + 1, endIndex);
                 
                 // Store embeddings for this batch using parallel processing
-                embeddingService.storeEmbeddingsParallel(batch);
+                if (useReferenceNumbers) {
+                    // Convert to TextWithReferenceNumbers and use reference number service
+                    List<ReferenceNumberEmbeddingService.TextWithReferenceNumbers> refNumberBatch = batch.stream()
+                        .map(text -> new ReferenceNumberEmbeddingService.TextWithReferenceNumbers(text, defaultRefnum1, defaultRefnum2))
+                        .collect(java.util.stream.Collectors.toList());
+                    referenceNumberEmbeddingService.storeEmbeddingsWithReferenceNumbersParallel(refNumberBatch);
+                } else {
+                    embeddingService.storeEmbeddingsParallel(batch);
+                }
                 
                 // Small delay to prevent overwhelming the system
                 Thread.sleep(50);
@@ -740,6 +799,92 @@ public class ScdfStreamProcessor {
         }
         
         return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Extract reference numbers from file URL by getting the filename
+     * @param fileUrl The file URL to extract filename from
+     * @return ReferenceNumbers object or null if parsing fails
+     */
+    private ReferenceNumbers extractReferenceNumbersFromFileUrl(String fileUrl) {
+        try {
+            // Extract filename from URL
+            String filename;
+            if (fileUrl.contains("/")) {
+                filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+            } else {
+                filename = fileUrl;
+            }
+            
+            // Remove URL parameters if any
+            if (filename.contains("?")) {
+                filename = filename.substring(0, filename.indexOf("?"));
+            }
+            
+            return extractReferenceNumbersFromFilename(filename);
+            
+        } catch (Exception e) {
+            logger.error("Unexpected error extracting filename from URL: {}. Error: {}", fileUrl, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Extract reference numbers from filename pattern: <refnum1>-<refnum2>.txt
+     * @param filename The filename to parse
+     * @return ReferenceNumbers object or null if parsing fails
+     */
+    private ReferenceNumbers extractReferenceNumbersFromFilename(String filename) {
+        try {
+            // Remove .txt extension
+            if (!filename.toLowerCase().endsWith(".txt")) {
+                logger.warn("File does not have .txt extension: {}", filename);
+                return null;
+            }
+            
+            String nameWithoutExtension = filename.substring(0, filename.length() - 4);
+            
+            // Split by dash to get refnum1 and refnum2
+            String[] parts = nameWithoutExtension.split("-");
+            if (parts.length != 2) {
+                logger.warn("Filename does not match pattern <refnum1>-<refnum2>.txt: {}", filename);
+                return null;
+            }
+            
+            // Parse the reference numbers
+            Integer refnum1 = Integer.parseInt(parts[0].trim());
+            Integer refnum2 = Integer.parseInt(parts[1].trim());
+            
+            // Validate that they are 6-digit numbers
+            if (refnum1 < 100000 || refnum1 > 999999 || refnum2 < 100000 || refnum2 > 999999) {
+                logger.warn("Reference numbers must be 6-digit integers (100000-999999). Got refnum1: {}, refnum2: {} from filename: {}", 
+                           refnum1, refnum2, filename);
+                return null;
+            }
+            
+            logger.debug("Extracted reference numbers from filename {}: refnum1={}, refnum2={}", filename, refnum1, refnum2);
+            return new ReferenceNumbers(refnum1, refnum2);
+            
+        } catch (NumberFormatException e) {
+            logger.warn("Failed to parse reference numbers from filename: {}. Error: {}", filename, e.getMessage());
+            return null;
+        } catch (Exception e) {
+            logger.error("Unexpected error parsing filename: {}. Error: {}", filename, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Simple data class to hold reference numbers
+     */
+    private static class ReferenceNumbers {
+        final Integer refnum1;
+        final Integer refnum2;
+        
+        ReferenceNumbers(Integer refnum1, Integer refnum2) {
+            this.refnum1 = refnum1;
+            this.refnum2 = refnum2;
+        }
     }
 }
 
