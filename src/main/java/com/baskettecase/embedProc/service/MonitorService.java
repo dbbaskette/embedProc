@@ -16,7 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Service
-@Profile({"local", "cloud"})
+@Profile({"local", "cloud", "standalone"})
 public class MonitorService {
 
     private static final Logger logger = LoggerFactory.getLogger(MonitorService.class);
