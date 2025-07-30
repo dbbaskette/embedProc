@@ -5,3 +5,6 @@ data/*/*
 !data/*/
 release.sh
 .release-exec
+.DS_Store
+*.log
+*.tmp

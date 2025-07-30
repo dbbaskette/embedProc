@@ -9,42 +9,42 @@ Standard Commons Logging discovery in action with spring-jcl: please remove comm
  :: Spring Boot ::   v3.5.3
  :: Spring Cloud Stream ::   v
  :: Spring Cloud Function ::   v
-2025-07-28T17:14:15.719-04:00  INFO 86765 --- [           main] c.b.embedProc.EmbedProcApplication       : The following 1 profile is active: "standalone"
-2025-07-28T17:14:16.460-04:00  INFO 86765 --- [           main] c.b.e.config.ReferenceNumberConfig       : ReferenceNumberConfig initialized - Reference number support enabled
-2025-07-28T17:14:16.467-04:00  INFO 86765 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : Starting PostgreSQL container with pgvector extension for standalone mode...
-2025-07-28T17:14:18.580-04:00  INFO 86765 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : PostgreSQL container started successfully!
-2025-07-28T17:14:18.581-04:00  INFO 86765 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : Database URL: jdbc:postgresql://localhost:63636/embedproc_standalone?loggerLevel=OFF
-2025-07-28T17:14:18.581-04:00  INFO 86765 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : Database Username: embedproc
-2025-07-28T17:14:19.001-04:00  INFO 86765 --- [           main] o.s.a.v.pgvector.PgVectorStore           : Using the vector table name: embeddings. Is empty: false
-2025-07-28T17:14:19.003-04:00  INFO 86765 --- [           main] o.s.a.v.pgvector.PgVectorStore           : Initializing PGVectorStore schema for table: embeddings in schema: public
-2025-07-28T17:14:19.003-04:00  INFO 86765 --- [           main] o.s.a.v.pgvector.PgVectorStore           : vectorTableValidationsEnabled false
-2025-07-28T17:14:19.060-04:00  INFO 86765 --- [           main] c.b.e.service.NoOpMetricsPublisher       : NoOpMetricsPublisher initialized - RabbitMQ metrics publishing disabled
-2025-07-28T17:14:19.061-04:00  INFO 86765 --- [           main] c.b.embedProc.service.MonitorService     : MonitorService initialized for instance: embedProc-0
-2025-07-28T17:14:19.062-04:00  INFO 86765 --- [           main] c.b.e.s.ReferenceNumberEmbeddingService  : ReferenceNumberEmbeddingService initialized with reference number support
-2025-07-28T17:14:19.064-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : StandaloneDirectoryProcessor initialized with reference numbers: true
-2025-07-28T17:14:19.064-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Default reference numbers - refnum1: 100001, refnum2: 200001
-2025-07-28T17:14:19.065-04:00  INFO 86765 --- [           main] c.b.e.service.InstanceStartupReporter    : InstanceStartupReporter initialized for instance: embedProc-0
-2025-07-28T17:14:19.558-04:00  INFO 86765 --- [           main] c.b.embedProc.EmbedProcApplication       : Started EmbedProcApplication in 4.584 seconds (process running for 5.037)
-2025-07-28T17:14:19.560-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Processing file: 100001-200001.txt
-2025-07-28T17:14:19.560-04:00 DEBUG 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Extracted reference numbers from filename 100001-200001.txt: refnum1=100001, refnum2=200001
-2025-07-28T17:14:19.560-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Storing embedding with reference numbers from filename - refnum1: 100001, refnum2: 200001
-2025-07-28T17:14:20.033-04:00 DEBUG 86765 --- [           main] c.b.embedProc.service.MonitorService     : Processed chunks updated: 1 (new total: 1)
-2025-07-28T17:14:20.033-04:00 DEBUG 86765 --- [           main] c.b.e.s.ReferenceNumberEmbeddingService  : Successfully stored embedding with reference numbers - refnum1: 100001, refnum2: 200001
-2025-07-28T17:14:20.033-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Successfully stored embedding for file: 100001-200001.txt
-2025-07-28T17:14:20.034-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Processing file: 123456-789012.txt
-2025-07-28T17:14:20.034-04:00 DEBUG 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Extracted reference numbers from filename 123456-789012.txt: refnum1=123456, refnum2=789012
-2025-07-28T17:14:20.034-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Storing embedding with reference numbers from filename - refnum1: 123456, refnum2: 789012
-2025-07-28T17:14:20.055-04:00 DEBUG 86765 --- [           main] c.b.embedProc.service.MonitorService     : Processed chunks updated: 1 (new total: 2)
-2025-07-28T17:14:20.056-04:00 DEBUG 86765 --- [           main] c.b.e.s.ReferenceNumberEmbeddingService  : Successfully stored embedding with reference numbers - refnum1: 123456, refnum2: 789012
-2025-07-28T17:14:20.056-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Successfully stored embedding for file: 123456-789012.txt
-2025-07-28T17:14:20.056-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : 
+2025-07-29T21:38:20.121-04:00  INFO 63483 --- [           main] c.b.embedProc.EmbedProcApplication       : The following 1 profile is active: "standalone"
+2025-07-29T21:38:22.038-04:00  INFO 63483 --- [           main] c.b.e.config.ReferenceNumberConfig       : ReferenceNumberConfig initialized - Reference number support enabled
+2025-07-29T21:38:22.049-04:00  INFO 63483 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : Starting PostgreSQL container with pgvector extension for standalone mode...
+2025-07-29T21:38:27.900-04:00  INFO 63483 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : PostgreSQL container started successfully!
+2025-07-29T21:38:27.900-04:00  INFO 63483 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : Database URL: jdbc:postgresql://localhost:61182/embedproc_standalone?loggerLevel=OFF
+2025-07-29T21:38:27.902-04:00  INFO 63483 --- [           main] c.b.e.c.StandaloneTestcontainersConfig   : Database Username: embedproc
+2025-07-29T21:38:28.592-04:00  INFO 63483 --- [           main] o.s.a.v.pgvector.PgVectorStore           : Using the vector table name: embeddings. Is empty: false
+2025-07-29T21:38:28.595-04:00  INFO 63483 --- [           main] o.s.a.v.pgvector.PgVectorStore           : Initializing PGVectorStore schema for table: embeddings in schema: public
+2025-07-29T21:38:28.595-04:00  INFO 63483 --- [           main] o.s.a.v.pgvector.PgVectorStore           : vectorTableValidationsEnabled false
+2025-07-29T21:38:28.671-04:00  INFO 63483 --- [           main] c.b.e.service.NoOpMetricsPublisher       : NoOpMetricsPublisher initialized - RabbitMQ metrics publishing disabled
+2025-07-29T21:38:28.673-04:00  INFO 63483 --- [           main] c.b.embedProc.service.MonitorService     : MonitorService initialized for instance: embedProc-0
+2025-07-29T21:38:28.675-04:00  INFO 63483 --- [           main] c.b.e.s.ReferenceNumberEmbeddingService  : ReferenceNumberEmbeddingService initialized with reference number support
+2025-07-29T21:38:28.677-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : StandaloneDirectoryProcessor initialized with reference numbers: true
+2025-07-29T21:38:28.678-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Default reference numbers - refnum1: 100001, refnum2: 200001
+2025-07-29T21:38:28.679-04:00  INFO 63483 --- [           main] c.b.e.service.InstanceStartupReporter    : InstanceStartupReporter initialized for instance: embedProc-0
+2025-07-29T21:38:29.517-04:00  INFO 63483 --- [           main] c.b.embedProc.EmbedProcApplication       : Started EmbedProcApplication in 10.937 seconds (process running for 11.477)
+2025-07-29T21:38:29.520-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Processing file: 100001-200001.txt
+2025-07-29T21:38:29.521-04:00 DEBUG 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Extracted reference numbers from filename 100001-200001.txt: refnum1=100001, refnum2=200001
+2025-07-29T21:38:29.521-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Storing embedding with reference numbers from filename - refnum1: 100001, refnum2: 200001
+2025-07-29T21:38:30.815-04:00 DEBUG 63483 --- [           main] c.b.embedProc.service.MonitorService     : Processed chunks updated: 1 (new total: 1)
+2025-07-29T21:38:30.816-04:00 DEBUG 63483 --- [           main] c.b.e.s.ReferenceNumberEmbeddingService  : Successfully stored embedding with reference numbers - refnum1: 100001, refnum2: 200001
+2025-07-29T21:38:30.816-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Successfully stored embedding for file: 100001-200001.txt
+2025-07-29T21:38:30.816-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Processing file: 123456-789012.txt
+2025-07-29T21:38:30.816-04:00 DEBUG 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Extracted reference numbers from filename 123456-789012.txt: refnum1=123456, refnum2=789012
+2025-07-29T21:38:30.816-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Storing embedding with reference numbers from filename - refnum1: 123456, refnum2: 789012
+2025-07-29T21:38:30.848-04:00 DEBUG 63483 --- [           main] c.b.embedProc.service.MonitorService     : Processed chunks updated: 1 (new total: 2)
+2025-07-29T21:38:30.848-04:00 DEBUG 63483 --- [           main] c.b.e.s.ReferenceNumberEmbeddingService  : Successfully stored embedding with reference numbers - refnum1: 123456, refnum2: 789012
+2025-07-29T21:38:30.848-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Successfully stored embedding for file: 123456-789012.txt
+2025-07-29T21:38:30.848-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : 
 === Stored Embeddings with Reference Numbers ===
-2025-07-28T17:14:20.060-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Found 2 stored embeddings:
-2025-07-28T17:14:20.061-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : [1] ID: 0bacad17-059d-4133-8121-3fd166e973da, RefNum1: 100001, RefNum2: 200001, Timestamp: 1753737259560, Content: '﻿INSURANCE MEGACORP
+2025-07-29T21:38:30.856-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : Found 2 stored embeddings:
+2025-07-29T21:38:30.857-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : [1] ID: 3dd24502-e5dc-4e50-9da7-472fa686a138, RefNum1: 123456, RefNum2: 789012, Timestamp: 1753839510816, Content: 'This is a test document for reference numbers 123456 and 789012.
+'
+2025-07-29T21:38:30.857-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : [2] ID: 4b27e8d8-747c-4058-a9ec-aeb2a1fb6d53, RefNum1: 100001, RefNum2: 200001, Timestamp: 1753839509521, Content: '﻿INSURANCE MEGACORP
 123 Insurance Way, Anytown, USA 12345
 1-800-555-ACME | contact@acmeinsurance.c...'
-2025-07-28T17:14:20.061-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : [2] ID: 4c1bd14b-5acf-4ae8-a6cf-370d919a7e78, RefNum1: 123456, RefNum2: 789012, Timestamp: 1753737260034, Content: 'This is a test document for reference numbers 123456 and 789012.
-'
-2025-07-28T17:14:20.061-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : === End of Stored Embeddings ===
-2025-07-28T17:14:20.061-04:00  INFO 86765 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : No query text provided. Skipping similarity search.
-2025-07-28T17:14:20.093-04:00  INFO 86765 --- [ionShutdownHook] c.b.e.c.StandaloneTestcontainersConfig   : Stopping PostgreSQL container...
+2025-07-29T21:38:30.857-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : === End of Stored Embeddings ===
+2025-07-29T21:38:30.857-04:00  INFO 63483 --- [           main] c.b.e.p.StandaloneDirectoryProcessor     : No query text provided. Skipping similarity search.
+2025-07-29T21:38:30.911-04:00  INFO 63483 --- [ionShutdownHook] c.b.e.c.StandaloneTestcontainersConfig   : Stopping PostgreSQL container...
