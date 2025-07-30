@@ -1,5 +1,20 @@
 # Gotchas and Edge Cases
 
+## Spring Configuration Issues
+
+### Embedding Model Bean Conflicts
+- **Issue**: Multiple embedding models (Ollama and OpenAI) causing Spring bean conflicts
+- **Error**: "found 2: ollamaEmbeddingModel,openAiEmbeddingModel"
+- **Solution**: Profile-based `@Primary` bean configuration in `EmbeddingModelConfig`
+- **Prevention**: Use profile-specific configurations for multi-provider setups
+- **Impact**: Resolves Cloud Foundry deployment failures
+
+### Maven Parameter Name Retention
+- **Issue**: Spring Framework 6.1+ requires parameter name information for dependency injection
+- **Error**: "This may be due to missing parameter name information"
+- **Solution**: Added `-parameters` compiler flag in Maven configuration
+- **Prevention**: Always include `-parameters` flag for Spring Framework 6.1+
+
 ## Logging and Performance
 
 ### Cloud Foundry Log Rate Limits

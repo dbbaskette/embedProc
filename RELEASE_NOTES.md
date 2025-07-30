@@ -1,3 +1,16 @@
+# Release 5.0.1
+
+## New Features
+- **Profile-Based Embedding Model Selection**: Automatic embedding model selection based on Spring profiles
+  - `standalone` profile uses Ollama embedding model for local inference
+  - `cloud` profile uses OpenAI embedding model for API-based processing
+- **Maven Parameters Flag**: Added `-parameters` compiler flag for Spring Framework 6.1+ compatibility
+- **Bean Conflict Resolution**: Resolved Spring AI embedding model bean conflicts for Cloud Foundry deployments
+
+## Bug Fixes
+- **Spring Bean Conflict**: Fixed "found 2: ollamaEmbeddingModel,openAiEmbeddingModel" error in Cloud Foundry deployments
+- **Parameter Name Retention**: Added Maven compiler `-parameters` flag for proper Spring dependency injection
+
 # Release 0.0.5
 
 ## New Features

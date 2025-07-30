@@ -19,6 +19,7 @@ A high-performance text embedding processor built with **Spring AI** that suppor
 - **🤖 Multiple AI Providers**: 
   - **Ollama** (local inference) for standalone mode
   - **OpenAI** for cloud deployments
+  - **Smart Profile-Based Selection**: Automatic embedding model selection based on deployment environment
 - **💾 Vector Storage**: PostgreSQL with pgvector extension for similarity search
 - **📊 Smart Document Processing**: Automatic chunking with configurable overlap
 - **🔁 Resilient Operations**: Built-in retry mechanisms and error handling
@@ -28,10 +29,11 @@ A high-performance text embedding processor built with **Spring AI** that suppor
 ## 📋 Prerequisites
 
 - **Java 21+**
-- **Maven 3.6.3+**
+- **Maven 3.6.3+** (with `-parameters` flag support)
 - **PostgreSQL 14+** with pgvector extension
 - **Ollama server** (for standalone mode)
 - **OpenAI API key** (for cloud mode)
+- **Docker** (for local testing with Testcontainers)
 
 ## 🛠️ Quick Start
 
@@ -142,6 +144,15 @@ curl -X POST http://localhost:9000 \
 | `spring.datasource.url` | PostgreSQL connection URL | - | Yes |
 | `spring.datasource.username` | Database username | - | Yes |
 | `spring.datasource.password` | Database password | - | Yes |
+
+### Embedding Model Configuration
+
+The application automatically selects the appropriate embedding model based on the active Spring profile:
+
+- **Standalone Profile**: Uses Ollama embedding model (local inference)
+- **Cloud Profile**: Uses OpenAI embedding model (API-based)
+
+This profile-based selection resolves Spring bean conflicts and ensures optimal performance for each deployment environment.
 
 ### Ollama Configuration (Standalone)
 
