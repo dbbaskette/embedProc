@@ -190,7 +190,26 @@ public class ScdfStreamProcessor {
                     batchNumber, totalBatches, i + 1, endIndex, fileUrl);
                 
                 // Store embeddings for this batch using parallel processing
-                embeddingService.storeEmbeddingsParallel(batch);
+                if (useReferenceNumbers) {
+                    // Extract reference numbers from file URL
+                    ReferenceNumbers refNumbers = extractReferenceNumbersFromFileUrl(fileUrl);
+                    Integer refnum1 = refNumbers != null ? refNumbers.refnum1 : defaultRefnum1;
+                    Integer refnum2 = refNumbers != null ? refNumbers.refnum2 : defaultRefnum2;
+                    
+                    if (refNumbers != null) {
+                        logger.info("Using reference numbers from filename - refnum1: {}, refnum2: {}", refnum1, refnum2);
+                    } else {
+                        logger.info("Using default reference numbers - refnum1: {}, refnum2: {}", refnum1, refnum2);
+                    }
+                    
+                    // Convert to TextWithMetadata and use embedding service with metadata
+                    List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
+                        .map(text -> new EmbeddingService.TextWithMetadata(text, refnum1, refnum2))
+                        .collect(java.util.stream.Collectors.toList());
+                    embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
+                } else {
+                    embeddingService.storeEmbeddingsParallel(batch);
+                }
                 
                 // Update progress metrics
                 processedChunks += batch.size();

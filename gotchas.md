@@ -1,5 +1,14 @@
 # Gotchas and Edge Cases
 
+## Production Bugs (Fixed)
+
+### Missing Metadata in Cloud Deployment (2025-01-08)
+- **Issue**: The `processFileStreamingFromTemp` method was not respecting the `useReferenceNumbers` flag
+- **Symptom**: Empty `"{}"` metadata in database despite `app.reference-numbers.enabled=true`
+- **Root Cause**: `processFileStreamingFromTemp` missing `if (useReferenceNumbers)` logic
+- **Solution**: Added reference number extraction and metadata logic to the production method
+- **Prevention**: All processing methods should follow the same pattern for metadata handling
+
 ## Spring Configuration Issues
 
 ### Embedding Model Bean Conflicts
