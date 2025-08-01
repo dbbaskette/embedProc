@@ -2,23 +2,27 @@ package com.baskettecase.embedProc.processor;
     
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.beans.factory.annotation.Value;
+import com.baskettecase.embedProc.service.FileDownloaderService;
+import com.baskettecase.embedProc.service.TextChunkingService;
 import com.baskettecase.embedProc.service.EmbeddingService;
-import com.baskettecase.embedProc.service.ReferenceNumberEmbeddingService;
+
 import com.baskettecase.embedProc.service.MonitorService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
+
+
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 
-import java.util.ArrayList;
+
+
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,11 +30,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Semaphore;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
+
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+
 
 @Configuration
 @Profile("cloud")
@@ -39,8 +41,10 @@ public class ScdfStreamProcessor {
     
     private static final Logger logger = LoggerFactory.getLogger(ScdfStreamProcessor.class);
     
+    private final FileDownloaderService fileDownloaderService;
+    private final TextChunkingService textChunkingService;
     private final EmbeddingService embeddingService;
-    private final ReferenceNumberEmbeddingService referenceNumberEmbeddingService;
+
     private final VectorQueryProcessor vectorQueryProcessor;
     private final MonitorService monitorService;
     private final String queryText;
@@ -49,45 +53,40 @@ public class ScdfStreamProcessor {
     private final Integer defaultRefnum2;
     private final AtomicBoolean queryRun = new AtomicBoolean(false);
     private final ObjectMapper objectMapper;
-    private final RestTemplate restTemplate;
-    private final int maxWordsPerChunk;
-    private final int overlapWords;
-    private final int minMeaningfulWords;
+
+    
+
     
     // Work limiting to prevent single instance from taking too much work
     private final AtomicInteger activeProcessingCount = new AtomicInteger(0);
     private final Semaphore processingSemaphore;
     private final int maxConcurrentFiles;
 
-    @Autowired
-    public ScdfStreamProcessor(EmbeddingService embeddingService,
-                             ReferenceNumberEmbeddingService referenceNumberEmbeddingService,
+    public ScdfStreamProcessor(FileDownloaderService fileDownloaderService,
+                             TextChunkingService textChunkingService,
+                             EmbeddingService embeddingService,
+
                              VectorQueryProcessor vectorQueryProcessor, 
                              MonitorService monitorService,
                              @Value("${app.query.text:}") String queryText,
                              @Value("${app.reference-numbers.enabled:false}") boolean useReferenceNumbers,
                              @Value("${app.reference-numbers.default.refnum1:100001}") Integer defaultRefnum1,
                              @Value("${app.reference-numbers.default.refnum2:200001}") Integer defaultRefnum2,
-                             @Value("${app.chunking.max-words-per-chunk:1000}") int maxWordsPerChunk,
-                             @Value("${app.chunking.overlap-words:150}") int overlapWords,
-                             @Value("${app.chunking.min-meaningful-words:100}") int minMeaningfulWords,
                              @Value("${app.processing.max-concurrent-files:2}") int maxConcurrentFiles,
-                             ObjectMapper objectMapper, RestTemplate restTemplate) {
+                             ObjectMapper objectMapper) {
+        this.fileDownloaderService = fileDownloaderService;
+        this.textChunkingService = textChunkingService;
         this.embeddingService = embeddingService;
-        this.referenceNumberEmbeddingService = referenceNumberEmbeddingService;
+
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.monitorService = monitorService;
         this.queryText = queryText;
         this.useReferenceNumbers = useReferenceNumbers;
         this.defaultRefnum1 = defaultRefnum1;
         this.defaultRefnum2 = defaultRefnum2;
-        this.maxWordsPerChunk = maxWordsPerChunk;
-        this.overlapWords = overlapWords;
-        this.minMeaningfulWords = minMeaningfulWords;
         this.maxConcurrentFiles = maxConcurrentFiles;
         this.processingSemaphore = new Semaphore(maxConcurrentFiles);
         this.objectMapper = objectMapper;
-        this.restTemplate = restTemplate;
         
         logger.info("ScdfStreamProcessor initialized with reference numbers: {}", useReferenceNumbers);
         if (useReferenceNumbers) {
@@ -100,211 +99,13 @@ public class ScdfStreamProcessor {
         logger.info("ScdfStreamProcessor bean created for SCDF deployment");
     }
 
-    private List<String> chunkText(String text, int chunkSize, int overlap) {
-        List<String> chunks = new ArrayList<>();
-        if (text == null || text.isEmpty()) {
-            return chunks;
-        }
 
-        // Use a scanner to process the text more efficiently
-        java.util.Scanner scanner = new java.util.Scanner(text);
-        int currentChunkSize = 0;
-        
-        // Buffer for the current chunk
-        StringBuilder chunkBuilder = new StringBuilder();
-        
-        while (scanner.hasNext()) {
-            String word = scanner.next();
-            
-            if (currentChunkSize > 0) {
-                chunkBuilder.append(' ');
-            }
-            chunkBuilder.append(word);
-            currentChunkSize++;
-            
-            // If we've reached the chunk size, add it to the results
-            if (currentChunkSize >= chunkSize) {
-                chunks.add(chunkBuilder.toString());
-                
-                // Handle overlap by moving back 'overlap' number of words
-                if (overlap > 0 && overlap < chunkSize) {
-                    // Reset the builder and add the overlap words
-                    String currentChunk = chunkBuilder.toString();
-                    String[] words = currentChunk.split("\\s+");
-                    chunkBuilder.setLength(0);
-                    
-                    // Start the next chunk with the overlapping words
-                    int overlapStart = Math.max(0, words.length - overlap);
-                    for (int i = overlapStart; i < words.length; i++) {
-                        if (i > overlapStart) {
-                            chunkBuilder.append(' ');
-                        }
-                        chunkBuilder.append(words[i]);
-                    }
-                    currentChunkSize = words.length - overlapStart;
-                } else {
-                    chunkBuilder.setLength(0);
-                    currentChunkSize = 0;
-                }
-            }
-        }
-        
-        // Add the last chunk if it's not empty
-        if (currentChunkSize > 0) {
-            chunks.add(chunkBuilder.toString());
-        }
-        
-        scanner.close();
-        return chunks;
-    }
 
-    /**
-     * Enhanced chunking with semantic boundaries for better Q&A context
-     * Creates larger chunks (800-1200 words) with meaningful overlap
-     */
-    private List<String> chunkTextEnhanced(String text, int maxWordsPerChunk, int overlapWords) {
-        List<String> chunks = new ArrayList<>();
-        if (text == null || text.isEmpty()) {
-            return chunks;
-        }
 
-        // Split text into paragraphs first for semantic chunking
-        String[] paragraphs = text.split("\\n\\s*\\n");
-        
-        // Combine short paragraphs to create more meaningful chunks
-        StringBuilder currentChunkBuilder = new StringBuilder();
-        int currentWordCount = 0;
-        
-        for (String paragraph : paragraphs) {
-            if (paragraph.trim().isEmpty()) {
-                continue;
-            }
-            
-            // Count meaningful words (ignore excessive whitespace)
-            int paragraphWordCount = countMeaningfulWords(paragraph);
-            
-            // If adding this paragraph would exceed max chunk size, finalize current chunk
-            if (currentWordCount + paragraphWordCount > maxWordsPerChunk && currentWordCount > 0) {
-                String chunk = currentChunkBuilder.toString().trim();
-                if (countMeaningfulWords(chunk) >= minMeaningfulWords) { // Use configurable minimum
-                    chunks.add(chunk);
-                }
-                currentChunkBuilder.setLength(0);
-                currentWordCount = 0;
-            }
-            
-            // Add paragraph to current chunk
-            if (currentWordCount > 0) {
-                currentChunkBuilder.append("\n\n");
-            }
-            currentChunkBuilder.append(paragraph.trim());
-            currentWordCount += paragraphWordCount;
-            
-            // If current chunk is large enough, finalize it
-            if (currentWordCount >= maxWordsPerChunk) {
-                String chunk = currentChunkBuilder.toString().trim();
-                if (countMeaningfulWords(chunk) >= minMeaningfulWords) { // Use configurable minimum
-                    chunks.add(chunk);
-                }
-                currentChunkBuilder.setLength(0);
-                currentWordCount = 0;
-            }
-        }
-        
-        // Add remaining content as final chunk if it's substantial
-        if (currentWordCount > 0) {
-            String chunk = currentChunkBuilder.toString().trim();
-            if (countMeaningfulWords(chunk) >= minMeaningfulWords) { // Use configurable minimum
-                chunks.add(chunk);
-            }
-        }
-        
-        return chunks;
-    }
-    
-    /**
-     * Count meaningful words, ignoring excessive whitespace and empty lines
-     */
-    private int countMeaningfulWords(String text) {
-        if (text == null || text.trim().isEmpty()) {
-            return 0;
-        }
-        
-        // Split into words and filter out empty strings and whitespace-only strings
-        String[] words = text.trim().split("\\s+");
-        int meaningfulWordCount = 0;
-        
-        for (String word : words) {
-            // Only count words that have actual content (not just spaces, punctuation, etc.)
-            if (word != null && !word.trim().isEmpty() && word.matches(".*[a-zA-Z0-9].*")) {
-                meaningfulWordCount++;
-            }
-        }
-        
-        return meaningfulWordCount;
-    }
     
 
 
-    private String fetchFileContent(String fileUrl) {
-        try {
-            // Reduced logging to prevent log rate limits
-            
-            // Check if this is a WebHDFS URL
-            boolean isWebHdfs = fileUrl.contains("/webhdfs/");
-            
-            if (isWebHdfs) {
-                // Reduced logging to prevent log rate limits
-                return fetchWebHdfsContent(fileUrl);
-            } else {
-                // Regular HTTP URL handling
-                ResponseEntity<String> response = restTemplate.getForEntity(fileUrl, String.class);
-                
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    String content = response.getBody();
-                    // Reduced logging to prevent log rate limits
-                    return content;
-                } else {
-                    logger.error("Failed to fetch file content from URL: {}. Status: {}", fileUrl, response.getStatusCode());
-                    return null; // Return null instead of throwing exception
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error fetching file content from URL: {}. Error: {}", fileUrl, e.getMessage());
-            return null; // Return null instead of throwing exception
-        }
-    }
 
-    private String fetchWebHdfsContent(String webHdfsUrl) {
-        try {
-            // Reduced logging to prevent log rate limits
-            
-            // WebHDFS requires specific headers and may need to follow redirects
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.set("User-Agent", "embedProc/1.0");
-            
-            // Create HTTP entity with headers
-            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
-            
-            // Create URI to prevent RestTemplate from re-encoding the URL
-            java.net.URI uri = new java.net.URI(webHdfsUrl);
-            
-            // Make the request using URI instead of String to prevent re-encoding
-            ResponseEntity<String> response = restTemplate.exchange(uri, org.springframework.http.HttpMethod.GET, entity, String.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                String content = response.getBody();
-                // Reduced logging to prevent log rate limits
-                return content;
-            } else {
-                logger.error("Failed to fetch WebHDFS content. Status: {}, Response: {}", response.getStatusCode(), response.getBody());
-                return null; // Return null instead of throwing exception
-            }
-        } catch (Exception e) {
-            logger.error("Error fetching WebHDFS content from URL: {}. Error: {}", webHdfsUrl, e.getMessage());
-            return null; // Return null instead of throwing exception
-        }
-    }
 
     private String extractFileUrl(String message) {
         try {
@@ -325,8 +126,8 @@ public class ScdfStreamProcessor {
                 return null;
             }
             
-            // Fix WebHDFS URL encoding and add operation parameter
-            fileUrl = fixWebHdfsUrl(fileUrl);
+            // Fix WebHDFS URL encoding and add operation parameter using FileDownloaderService
+            fileUrl = fileDownloaderService.fixWebHdfsUrl(fileUrl);
             
             return fileUrl;
             
@@ -336,97 +137,7 @@ public class ScdfStreamProcessor {
         }
     }
 
-    private String fixWebHdfsUrl(String url) {
-        try {
-            // Check if this is a WebHDFS URL
-            if (url.contains("/webhdfs/")) {
-                // Reduced logging to prevent log rate limits
-                
-                // Handle double-encoding but preserve URL encoding for WebHDFS
-                String processedUrl = url;
-                
-                // Check for double-encoding (e.g., %2520 instead of %20)
-                if (url.contains("%25")) {
-                    // Decode only the double-encoded parts
-                    processedUrl = url.replace("%25", "%");
-                    // Reduced logging to prevent log rate limits
-                }
-                
-                // Remove any existing query parameters
-                String baseUrl = processedUrl;
-                if (processedUrl.contains("?")) {
-                    baseUrl = processedUrl.substring(0, processedUrl.indexOf("?"));
-                }
-                
-                // Add the required WebHDFS operation parameter
-                String fixedUrl = baseUrl + "?op=OPEN";
-                // Reduced logging to prevent log rate limits
-                
-                return fixedUrl;
-            } else {
-                // Not a WebHDFS URL, return as-is
-                return url;
-            }
-        } catch (Exception e) {
-            logger.error("Error fixing WebHDFS URL: {}. Error: {}", url, e.getMessage());
-            // Return original URL if fixing fails
-            return url;
-        }
-    }
 
-    /**
-     * Download file to temp storage and process in streaming fashion
-     * This reduces memory usage for large files
-     */
-    private File downloadFileToTemp(String fileUrl) {
-        try {
-            // Create temp file
-            File tempFile = File.createTempFile("embedproc_", ".txt");
-            tempFile.deleteOnExit(); // Clean up on JVM exit
-            
-            logger.info("Downloading file to temp: {} -> {}", fileUrl, tempFile.getAbsolutePath());
-            
-            // Check if this is a WebHDFS URL
-            boolean isWebHdfs = fileUrl.contains("/webhdfs/");
-            
-            if (isWebHdfs) {
-                // WebHDFS download
-                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-                headers.set("User-Agent", "embedProc/1.0");
-                org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
-                java.net.URI uri = new java.net.URI(fileUrl);
-                
-                ResponseEntity<byte[]> response = restTemplate.exchange(uri, org.springframework.http.HttpMethod.GET, entity, byte[].class);
-                
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    byte[] content = response.getBody();
-                    Files.write(tempFile.toPath(), content);
-                    logger.info("Downloaded {} bytes to temp file", content.length);
-                    return tempFile;
-                } else {
-                    logger.error("Failed to download WebHDFS file. Status: {}", response.getStatusCode());
-                    return null;
-                }
-            } else {
-                // Regular HTTP download
-                ResponseEntity<byte[]> response = restTemplate.getForEntity(fileUrl, byte[].class);
-                
-                if (response.getStatusCode().is2xxSuccessful()) {
-                    byte[] content = response.getBody();
-                    Files.write(tempFile.toPath(), content);
-                    logger.info("Downloaded {} bytes to temp file", content.length);
-                    return tempFile;
-                } else {
-                    logger.error("Failed to download file. Status: {}", response.getStatusCode());
-                    return null;
-                }
-            }
-            
-        } catch (Exception e) {
-            logger.error("Error downloading file to temp: {}", e.getMessage());
-            return null;
-        }
-    }
     
     /**
      * Process file in streaming fashion from temp storage with real-time metrics
@@ -437,8 +148,8 @@ public class ScdfStreamProcessor {
         try {
             logger.info("Starting streaming temp file processing for: {}", fileUrl);
             
-            // Download file to temp storage
-            tempFile = downloadFileToTemp(fileUrl);
+            // Download file to temp storage using FileDownloaderService
+            tempFile = fileDownloaderService.downloadFileToTemp(fileUrl);
             if (tempFile == null || !tempFile.exists()) {
                 logger.warn("Failed to download file to temp storage: {}", fileUrl);
                 return CompletableFuture.completedFuture(null);
@@ -452,7 +163,7 @@ public class ScdfStreamProcessor {
             
             // Process in streaming batches with real-time metrics
             int streamingChunkSize = 200; // Smaller batches for better responsiveness
-            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
+            List<String> allChunks = textChunkingService.chunkTextEnhanced(fileContent);
             logger.info("Created {} total chunks from temp file", allChunks.size());
             
             if (allChunks.isEmpty()) {
@@ -588,8 +299,8 @@ public class ScdfStreamProcessor {
         try {
             logger.info("Starting async file processing for: {}", fileUrl);
             
-            // Fetch file content
-            String fileContent = fetchFileContent(fileUrl);
+            // Fetch file content using FileDownloaderService
+            String fileContent = fileDownloaderService.fetchFileContent(fileUrl);
             if (fileContent == null || fileContent.isEmpty()) {
                 logger.warn("No content found in file: {}", fileUrl);
                 return CompletableFuture.completedFuture(null);
@@ -598,20 +309,8 @@ public class ScdfStreamProcessor {
             logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
             
             // Enhanced chunking with semantic boundaries
-            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-            logger.info("Created {} chunks from file: {} (avg {} meaningful words per chunk)", 
-                       allChunks.size(), fileUrl, 
-                       allChunks.isEmpty() ? 0 : allChunks.stream()
-                           .mapToInt(chunk -> countMeaningfulWords(chunk))
-                           .average().orElse(0.0));
-            
-            // Log chunk quality statistics
-            if (!allChunks.isEmpty()) {
-                int minWords = allChunks.stream().mapToInt(chunk -> countMeaningfulWords(chunk)).min().orElse(0);
-                int maxWords = allChunks.stream().mapToInt(chunk -> countMeaningfulWords(chunk)).max().orElse(0);
-                logger.info("Chunk quality - Min: {} meaningful words, Max: {} meaningful words, Target: {} words", 
-                           minWords, maxWords, maxWordsPerChunk);
-            }
+            List<String> allChunks = textChunkingService.chunkTextEnhanced(fileContent);
+            logger.info("Created {} chunks from file: {} using TextChunkingService", allChunks.size(), fileUrl);
             
             if (allChunks.isEmpty()) {
                 logger.warn("No chunks generated from the input text");
@@ -631,11 +330,11 @@ public class ScdfStreamProcessor {
                     logger.info("Using default reference numbers - refnum1: {}, refnum2: {}", refnum1, refnum2);
                 }
                 
-                // Convert to TextWithReferenceNumbers and use reference number service
-                List<ReferenceNumberEmbeddingService.TextWithReferenceNumbers> refNumberChunks = allChunks.stream()
-                    .map(text -> new ReferenceNumberEmbeddingService.TextWithReferenceNumbers(text, refnum1, refnum2))
+                // Convert to TextWithMetadata and use embedding service with metadata
+                List<EmbeddingService.TextWithMetadata> metadataChunks = allChunks.stream()
+                    .map(text -> new EmbeddingService.TextWithMetadata(text, refnum1, refnum2))
                     .collect(java.util.stream.Collectors.toList());
-                referenceNumberEmbeddingService.storeEmbeddingsWithReferenceNumbersParallel(refNumberChunks);
+                embeddingService.storeEmbeddingsWithMetadataParallel(metadataChunks);
             } else {
                 embeddingService.storeEmbeddingsParallel(allChunks);
             }
@@ -662,8 +361,8 @@ public class ScdfStreamProcessor {
         try {
             logger.info("Starting streaming file processing for: {}", fileUrl);
             
-            // Fetch file content
-            String fileContent = fetchFileContent(fileUrl);
+            // Fetch file content using FileDownloaderService
+            String fileContent = fileDownloaderService.fetchFileContent(fileUrl);
             if (fileContent == null || fileContent.isEmpty()) {
                 logger.warn("No content found in file: {}", fileUrl);
                 return CompletableFuture.completedFuture(null);
@@ -673,12 +372,8 @@ public class ScdfStreamProcessor {
             
             // Process in smaller chunks for better responsiveness
             int streamingChunkSize = 500; // Process 500 chunks at a time
-            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-            logger.info("Created {} total chunks from file: {} (avg {} meaningful words per chunk)", 
-                       allChunks.size(), fileUrl,
-                       allChunks.isEmpty() ? 0 : allChunks.stream()
-                           .mapToInt(chunk -> countMeaningfulWords(chunk))
-                           .average().orElse(0.0));
+            List<String> allChunks = textChunkingService.chunkTextEnhanced(fileContent);
+            logger.info("Created {} total chunks from file: {} using TextChunkingService", allChunks.size(), fileUrl);
             
             if (allChunks.isEmpty()) {
                 logger.warn("No chunks generated from the input text");
@@ -702,11 +397,11 @@ public class ScdfStreamProcessor {
                     Integer refnum1 = refNumbers != null ? refNumbers.refnum1 : defaultRefnum1;
                     Integer refnum2 = refNumbers != null ? refNumbers.refnum2 : defaultRefnum2;
                     
-                    // Convert to TextWithReferenceNumbers and use reference number service
-                    List<ReferenceNumberEmbeddingService.TextWithReferenceNumbers> refNumberBatch = batch.stream()
-                        .map(text -> new ReferenceNumberEmbeddingService.TextWithReferenceNumbers(text, refnum1, refnum2))
+                    // Convert to TextWithMetadata and use embedding service with metadata
+                    List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
+                        .map(text -> new EmbeddingService.TextWithMetadata(text, refnum1, refnum2))
                         .collect(java.util.stream.Collectors.toList());
-                    referenceNumberEmbeddingService.storeEmbeddingsWithReferenceNumbersParallel(refNumberBatch);
+                    embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
                 } else {
                     embeddingService.storeEmbeddingsParallel(batch);
                 }
@@ -737,8 +432,8 @@ public class ScdfStreamProcessor {
         try {
             logger.info("Starting work-limited file processing for: {}", fileUrl);
             
-            // Fetch file content
-            String fileContent = fetchFileContent(fileUrl);
+            // Fetch file content using FileDownloaderService
+            String fileContent = fileDownloaderService.fetchFileContent(fileUrl);
             if (fileContent == null || fileContent.isEmpty()) {
                 logger.warn("No content found in file: {}", fileUrl);
                 return CompletableFuture.completedFuture(null);
@@ -747,12 +442,8 @@ public class ScdfStreamProcessor {
             logger.info("Processing document of length: {} characters from file: {}", fileContent.length(), fileUrl);
             
             // Enhanced chunking with semantic boundaries
-            List<String> allChunks = chunkTextEnhanced(fileContent, maxWordsPerChunk, overlapWords);
-            logger.info("Created {} chunks from file: {} (avg {} meaningful words per chunk)", 
-                       allChunks.size(), fileUrl,
-                       allChunks.isEmpty() ? 0 : allChunks.stream()
-                           .mapToInt(chunk -> countMeaningfulWords(chunk))
-                           .average().orElse(0.0));
+            List<String> allChunks = textChunkingService.chunkTextEnhanced(fileContent);
+            logger.info("Created {} chunks from file: {} using TextChunkingService", allChunks.size(), fileUrl);
             
             if (allChunks.isEmpty()) {
                 logger.warn("No chunks generated from the input text");
@@ -774,11 +465,11 @@ public class ScdfStreamProcessor {
                 
                 // Store embeddings for this batch using parallel processing
                 if (useReferenceNumbers) {
-                    // Convert to TextWithReferenceNumbers and use reference number service
-                    List<ReferenceNumberEmbeddingService.TextWithReferenceNumbers> refNumberBatch = batch.stream()
-                        .map(text -> new ReferenceNumberEmbeddingService.TextWithReferenceNumbers(text, defaultRefnum1, defaultRefnum2))
-                        .collect(java.util.stream.Collectors.toList());
-                    referenceNumberEmbeddingService.storeEmbeddingsWithReferenceNumbersParallel(refNumberBatch);
+                                    // Convert to TextWithMetadata and use embedding service with metadata
+                List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
+                    .map(text -> new EmbeddingService.TextWithMetadata(text, defaultRefnum1, defaultRefnum2))
+                    .collect(java.util.stream.Collectors.toList());
+                embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
                 } else {
                     embeddingService.storeEmbeddingsParallel(batch);
                 }
@@ -887,4 +578,3 @@ public class ScdfStreamProcessor {
         }
     }
 }
-

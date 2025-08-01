@@ -8,29 +8,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Configuration class for reference number functionality.
+ * Configuration class for metadata functionality.
  * This class provides configuration properties and setup for the enhanced
- * pgvector table with refnum1 and refnum2 support.
+ * pgvector table with refnum1 and refnum2 metadata support.
  */
 @Configuration
 @Profile({"standalone", "cloud", "local"})
-@EnableConfigurationProperties(ReferenceNumberConfig.ReferenceNumberProperties.class)
-public class ReferenceNumberConfig {
+@EnableConfigurationProperties(MetadataConfig.MetadataProperties.class)
+public class MetadataConfig {
 
-    private static final Logger logger = LoggerFactory.getLogger(ReferenceNumberConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(MetadataConfig.class);
 
-    public ReferenceNumberConfig() {
-        logger.info("ReferenceNumberConfig initialized - Reference number support enabled");
+    public MetadataConfig() {
+        logger.info("MetadataConfig initialized - Metadata support enabled");
     }
 
     /**
-     * Configuration properties for reference number functionality
+     * Configuration properties for metadata functionality
      */
     @ConfigurationProperties(prefix = "app.reference-numbers")
-    public static class ReferenceNumberProperties {
+    public static class MetadataProperties {
         
         /**
-         * Enable reference number validation
+         * Enable metadata validation
          */
         private boolean enableValidation = true;
         
@@ -45,17 +45,17 @@ public class ReferenceNumberConfig {
         private int maxValue = 999999;
         
         /**
-         * Enable reference number indexing for better query performance
+         * Enable metadata indexing for better query performance
          */
         private boolean enableIndexing = true;
         
         /**
-         * Default batch size for processing embeddings with reference numbers
+         * Default batch size for processing embeddings with metadata
          */
         private int batchSize = 10;
         
         /**
-         * Enable parallel processing for reference number embeddings
+         * Enable parallel processing for metadata embeddings
          */
         private boolean enableParallelProcessing = true;
 
@@ -110,7 +110,7 @@ public class ReferenceNumberConfig {
 
         @Override
         public String toString() {
-            return "ReferenceNumberProperties{" +
+            return "MetadataProperties{" +
                     "enableValidation=" + enableValidation +
                     ", minValue=" + minValue +
                     ", maxValue=" + maxValue +

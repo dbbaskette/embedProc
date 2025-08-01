@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.baskettecase</groupId>
 	<artifactId>embedProc</artifactId>
-	<version>5.0.3</version>
+	<version>5.1.0</version>
 	<name>embedProc</name>
 	<description>Embedding processor using Spring AI with Spring Boot and Ollama</description>
 	<url/>

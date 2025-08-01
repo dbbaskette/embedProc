@@ -1,19 +1,27 @@
-# Reference Numbers Implementation Guide
+# Metadata Implementation Guide
 
 ## Overview
 
-This document explains the implementation of reference number support in the embedProc application. The feature allows storing two 6-digit integer reference numbers (`refnum1` and `refnum2`) alongside text embeddings in the pgvector table.
+This document explains the implementation of metadata support in the embedProc application. The feature allows storing two 6-digit integer reference numbers (`refnum1` and `refnum2`) as metadata alongside text embeddings in the pgvector table.
 
 ## Architecture
 
-The reference number functionality is implemented using Spring AI's Document metadata feature, which stores additional data alongside embeddings in the PostgreSQL pgvector table without requiring schema changes.
+The metadata functionality is implemented using Spring AI's Document metadata feature, which stores additional data alongside embeddings in the PostgreSQL pgvector table without requiring schema changes.
 
 ### Key Components
 
-1. **ReferenceNumberEmbeddingService** - Enhanced service for storing embeddings with reference numbers
-2. **ReferenceNumberVectorQueryProcessor** - Query processor with reference number filtering capabilities
-3. **ReferenceNumberStandaloneProcessor** - Example processor demonstrating usage
-4. **ReferenceNumberConfig** - Configuration properties for reference number validation
+1. **EmbeddingService** - Unified service that handles both plain embeddings and embeddings with metadata
+2. **MetadataConfig** - Configuration properties for metadata validation
+3. **ScdfStreamProcessor** - Cloud deployment processor with metadata support
+4. **StandaloneDirectoryProcessor** - Local directory processor with metadata support
+
+### Design Philosophy
+
+**Metadata is just an optional parameter, not a separate service.** The EmbeddingService handles both cases:
+- Plain embeddings: `storeEmbedding(text)`
+- Embeddings with metadata: `storeEmbeddingWithMetadata(text, refnum1, refnum2)`
+
+This unified approach eliminates service duplication and follows single responsibility principles.
 
 ## Implementation Details
 
@@ -36,25 +44,28 @@ The pgvector table automatically stores metadata in a JSONB column, allowing for
 
 ## Usage Examples
 
-### Storing Embeddings with Reference Numbers
+### Storing Embeddings with Metadata
 
 ```java
 @Autowired
-private ReferenceNumberEmbeddingService embeddingService;
+private EmbeddingService embeddingService;
 
-// Store single embedding with reference numbers
-embeddingService.storeEmbeddingWithReferenceNumbers(
+// Store plain embedding (no metadata)
+embeddingService.storeEmbedding("Your text content here");
+
+// Store embedding with metadata
+embeddingService.storeEmbeddingWithMetadata(
     "Your text content here", 
     123456,  // refnum1
     789012   // refnum2
 );
 
-// Store multiple embeddings in batch
-List<TextWithReferenceNumbers> textList = Arrays.asList(
-    new TextWithReferenceNumbers("Text 1", 123456, 789012),
-    new TextWithReferenceNumbers("Text 2", 234567, 890123)
+// Store multiple embeddings with metadata in parallel
+List<EmbeddingService.TextWithMetadata> textList = Arrays.asList(
+    new EmbeddingService.TextWithMetadata("Text 1", 123456, 789012),
+    new EmbeddingService.TextWithMetadata("Text 2", 234567, 890123)
 );
-embeddingService.storeEmbeddingsWithReferenceNumbers(textList);
+embeddingService.storeEmbeddingsWithMetadataParallel(textList);
 ```
 
 ### Querying with Reference Numbers
@@ -134,10 +145,10 @@ The service supports batch processing for better performance:
 
 ```java
 // Sequential batch processing
-embeddingService.storeEmbeddingsWithReferenceNumbers(textList);
+embeddingService.storeEmbeddingsWithMetadataParallel(textList);
 
 // Parallel batch processing (faster for large datasets)
-embeddingService.storeEmbeddingsWithReferenceNumbersParallel(textList);
+embeddingService.storeEmbeddingsWithMetadataParallelParallel(textList);
 ```
 
 ### Query Performance
@@ -171,11 +182,11 @@ The reference number functionality integrates with the existing monitoring syste
 @Profile("standalone-refnum")
 public class MyReferenceNumberProcessor implements CommandLineRunner {
     
-    private final ReferenceNumberEmbeddingService embeddingService;
+    private final EmbeddingService embeddingService;
     private final ReferenceNumberVectorQueryProcessor queryProcessor;
     
     public MyReferenceNumberProcessor(
-            ReferenceNumberEmbeddingService embeddingService,
+            EmbeddingService embeddingService,
             ReferenceNumberVectorQueryProcessor queryProcessor) {
         this.embeddingService = embeddingService;
         this.queryProcessor = queryProcessor;
@@ -189,7 +200,7 @@ public class MyReferenceNumberProcessor implements CommandLineRunner {
             new TextWithReferenceNumbers("Document about ML", 234567, 890123)
         );
         
-        embeddingService.storeEmbeddingsWithReferenceNumbers(data);
+        embeddingService.storeEmbeddingsWithMetadataParallel(data);
         
         // Query with reference number filtering
         queryProcessor.runQueryWithReferenceNumbers("AI", 3, 123456, null);
@@ -200,21 +211,30 @@ public class MyReferenceNumberProcessor implements CommandLineRunner {
 }
 ```
 
+## Architecture Benefits
+
+The unified EmbeddingService provides several advantages:
+
+1. **Single Responsibility**: One service handles embedding, metadata is just optional data
+2. **Reduced Complexity**: No need to choose between different embedding services  
+3. **Code Reduction**: Eliminated ~400+ lines of duplicate code
+4. **Logical Design**: Service named after primary function (embedding), not secondary features (metadata)
+5. **Easier Testing**: Single service to test with both plain and metadata scenarios
+
 ## Migration from Existing Code
 
-To migrate existing code to use reference numbers:
+**No migration needed!** The EmbeddingService now handles both cases:
+- Use `storeEmbedding(text)` for plain embeddings
+- Use `storeEmbeddingWithMetadata(text, refnum1, refnum2)` for embeddings with metadata
 
-1. Replace `EmbeddingService` with `ReferenceNumberEmbeddingService`
-2. Replace `VectorQueryProcessor` with `ReferenceNumberVectorQueryProcessor`
-3. Update method calls to include reference number parameters
-4. Add reference number configuration properties
+All processors automatically use the unified service.
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Validation Errors**: Ensure reference numbers are 6-digit integers (100000-999999)
-2. **Profile Issues**: Make sure to activate the correct Spring profile (`standalone-refnum`)
+2. **Profile Issues**: Make sure to activate the correct Spring profile (`standalone` or `cloud`)
 3. **Configuration**: Verify reference number properties are properly configured
 
 ### Debug Logging
@@ -222,7 +242,7 @@ To migrate existing code to use reference numbers:
 Enable debug logging for reference number operations:
 
 ```properties
-logging.level.com.baskettecase.embedProc.service.ReferenceNumberEmbeddingService=DEBUG
+logging.level.com.baskettecase.embedProc.service.EmbeddingService=DEBUG
 logging.level.com.baskettecase.embedProc.processor.ReferenceNumberVectorQueryProcessor=DEBUG
 ```
 

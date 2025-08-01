@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
-import com.baskettecase.embedProc.service.ReferenceNumberEmbeddingService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,7 +21,7 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(StandaloneDirectoryProcessor.class);
     
     private final EmbeddingService embeddingService;
-    private final ReferenceNumberEmbeddingService referenceNumberEmbeddingService;
+
     private final VectorQueryProcessor vectorQueryProcessor;
     private final JdbcTemplate jdbcTemplate;
     private final String queryText;
@@ -30,7 +30,7 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private final Integer defaultRefnum2;
 
     public StandaloneDirectoryProcessor(EmbeddingService embeddingService,
-                                      ReferenceNumberEmbeddingService referenceNumberEmbeddingService,
+
                                       VectorQueryProcessor vectorQueryProcessor,
                                       JdbcTemplate jdbcTemplate,
                                       @Value("${app.query.text:}") String queryText,
@@ -38,7 +38,7 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
                                       @Value("${app.reference-numbers.default.refnum1:100001}") Integer defaultRefnum1,
                                       @Value("${app.reference-numbers.default.refnum2:200001}") Integer defaultRefnum2) {
         this.embeddingService = embeddingService;
-        this.referenceNumberEmbeddingService = referenceNumberEmbeddingService;
+
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.jdbcTemplate = jdbcTemplate;
         this.queryText = queryText;
@@ -91,11 +91,11 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
                 if (refNumbers != null) {
                     logger.info("Storing embedding with reference numbers from filename - refnum1: {}, refnum2: {}", 
                                refNumbers.refnum1, refNumbers.refnum2);
-                    referenceNumberEmbeddingService.storeEmbeddingWithReferenceNumbers(content, refNumbers.refnum1, refNumbers.refnum2);
+                    embeddingService.storeEmbeddingWithMetadata(content, refNumbers.refnum1, refNumbers.refnum2);
                 } else {
                     // Fall back to default reference numbers if filename parsing fails
                     logger.warn("Could not extract reference numbers from filename: {}, using defaults", file.getFileName());
-                    referenceNumberEmbeddingService.storeEmbeddingWithReferenceNumbers(content, defaultRefnum1, defaultRefnum2);
+                    embeddingService.storeEmbeddingWithMetadata(content, defaultRefnum1, defaultRefnum2);
                 }
             } else {
                 // Store embedding using the regular EmbeddingService
