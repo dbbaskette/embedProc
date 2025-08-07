@@ -305,6 +305,8 @@ public class EmbeddingService {
                     
                     logger.debug("Processed batch {}/{} with {} embeddings with metadata", 
                                batchIndex, totalBatches, batch.size());
+                    logger.info("Successfully stored batch {}/{} with {} documents to vector store", 
+                               batchIndex, totalBatches, batch.size());
                     
                 } catch (Exception e) {
                     embeddingErrorCounter.increment(batch.size());

@@ -32,6 +32,10 @@ public class MonitorService {
     private final AtomicLong totalChunks = new AtomicLong(0);
     private final AtomicLong processedChunks = new AtomicLong(0);
     private final AtomicLong errorCount = new AtomicLong(0);
+    private final AtomicLong filesProcessed = new AtomicLong(0);
+    private final AtomicLong filesTotal = new AtomicLong(0);
+    private volatile String currentFile = null;
+    private volatile String lastError = null;
 
     @Autowired
     public MonitorService(Counter embeddingProcessedCounter, 
@@ -68,6 +72,28 @@ public class MonitorService {
         publishMetrics();
     }
 
+    public void setCurrentFile(String filename) {
+        this.currentFile = filename;
+        publishMetrics();
+    }
+
+    public void incrementFilesProcessed() {
+        filesProcessed.incrementAndGet();
+        logger.debug("Files processed updated: {}", filesProcessed.get());
+        publishMetrics();
+    }
+
+    public void setFilesTotal(long total) {
+        filesTotal.set(total);
+        logger.debug("Files total set to: {}", total);
+        publishMetrics();
+    }
+
+    public void setLastError(String error) {
+        this.lastError = error;
+        publishMetrics();
+    }
+
     public MonitoringData getMonitoringData() {
         return new MonitoringData(
             instanceId,
@@ -77,7 +103,13 @@ public class MonitorService {
             errorCount.get(),
             calculateProcessingRate(),
             getUptime(),
-            determineStatus()
+            determineStatus(),
+            currentFile,
+            filesProcessed.get(),
+            filesTotal.get(),
+            lastError,
+            getMemoryUsedMB(),
+            getPendingMessages()
         );
     }
 
@@ -117,6 +149,21 @@ public class MonitorService {
         }
     }
 
+    private long getMemoryUsedMB() {
+        Runtime runtime = Runtime.getRuntime();
+        long totalMemory = runtime.totalMemory();
+        long freeMemory = runtime.freeMemory();
+        return (totalMemory - freeMemory) / (1024 * 1024);
+    }
+
+    private long getPendingMessages() {
+        // This would require RabbitMQ admin API access
+        // For now, return estimate based on processing status
+        long total = totalChunks.get();
+        long processed = processedChunks.get();
+        return Math.max(0, total - processed);
+    }
+
     public static class MonitoringData {
         private final String instanceId;
         private final String timestamp;
@@ -126,10 +173,20 @@ public class MonitorService {
         private final double processingRate;
         private final String uptime;
         private final String status;
+        // Priority 1 fields
+        private final String currentFile;
+        private final long filesProcessed;
+        private final long filesTotal;
+        private final String lastError;
+        // Priority 2 fields
+        private final long memoryUsedMB;
+        private final long pendingMessages;
 
         public MonitoringData(String instanceId, String timestamp, long totalChunks, 
                              long processedChunks, long errorCount, double processingRate, 
-                             String uptime, String status) {
+                             String uptime, String status, String currentFile, 
+                             long filesProcessed, long filesTotal, String lastError,
+                             long memoryUsedMB, long pendingMessages) {
             this.instanceId = instanceId;
             this.timestamp = timestamp;
             this.totalChunks = totalChunks;
@@ -138,6 +195,12 @@ public class MonitorService {
             this.processingRate = processingRate;
             this.uptime = uptime;
             this.status = status;
+            this.currentFile = currentFile;
+            this.filesProcessed = filesProcessed;
+            this.filesTotal = filesTotal;
+            this.lastError = lastError;
+            this.memoryUsedMB = memoryUsedMB;
+            this.pendingMessages = pendingMessages;
         }
 
         // Getters
@@ -149,5 +212,11 @@ public class MonitorService {
         public double getProcessingRate() { return processingRate; }
         public String getUptime() { return uptime; }
         public String getStatus() { return status; }
+        public String getCurrentFile() { return currentFile; }
+        public long getFilesProcessed() { return filesProcessed; }
+        public long getFilesTotal() { return filesTotal; }
+        public String getLastError() { return lastError; }
+        public long getMemoryUsedMB() { return memoryUsedMB; }
+        public long getPendingMessages() { return pendingMessages; }
     }
 }

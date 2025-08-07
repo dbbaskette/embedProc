@@ -7,7 +7,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
@@ -53,10 +52,7 @@ public class InstanceStartupReporter {
             startupMessage.put("status", "STARTED");
             startupMessage.put("message", "Instance started successfully");
             
-            // Convert to JSON
-            String jsonMessage = objectMapper.writeValueAsString(startupMessage);
-            
-            // Publish to metrics queue
+            // Publish startup metrics to RabbitMQ queue
             metricsPublisher.publishMetrics(new MonitorService.MonitoringData(
                 instanceId,
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
@@ -65,16 +61,27 @@ public class InstanceStartupReporter {
                 0, // errorCount
                 0.0, // processingRate
                 "0h 0m", // uptime
-                "STARTED" // status
+                "STARTED", // status
+                null, // currentFile
+                0, // filesProcessed
+                0, // filesTotal
+                null, // lastError
+                getMemoryUsedMB(), // memoryUsedMB
+                0 // pendingMessages
             ));
             
             logger.info("Instance startup reported to metrics queue: {}", instanceId);
             
-        } catch (JsonProcessingException e) {
-            logger.error("Failed to serialize startup message: {}", e.getMessage());
         } catch (Exception e) {
             logger.warn("Failed to report instance startup to metrics queue: {}", e.getMessage());
             // Don't throw exception - we don't want startup reporting failures to affect application startup
         }
+    }
+
+    private long getMemoryUsedMB() {
+        Runtime runtime = Runtime.getRuntime();
+        long totalMemory = runtime.totalMemory();
+        long freeMemory = runtime.freeMemory();
+        return (totalMemory - freeMemory) / (1024 * 1024);
     }
 } 

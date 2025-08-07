@@ -124,12 +124,19 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
                 return null;
             }
             
-            String nameWithoutExtension = filename.substring(0, filename.length() - 4);
+            String nameWithoutTxt = filename.substring(0, filename.length() - 4);
+            
+            // Handle double extensions like .pdf.txt - remove any remaining extension
+            String nameWithoutExtensions = nameWithoutTxt;
+            int lastDotIndex = nameWithoutTxt.lastIndexOf('.');
+            if (lastDotIndex > 0) {
+                nameWithoutExtensions = nameWithoutTxt.substring(0, lastDotIndex);
+            }
             
             // Split by dash to get refnum1 and refnum2
-            String[] parts = nameWithoutExtension.split("-");
+            String[] parts = nameWithoutExtensions.split("-");
             if (parts.length != 2) {
-                logger.warn("Filename does not match pattern <refnum1>-<refnum2>.txt: {}", filename);
+                logger.warn("Filename does not match pattern <refnum1>-<refnum2>.[ext].txt: {}", filename);
                 return null;
             }
             

@@ -148,6 +148,15 @@ public class ScdfStreamProcessor {
         try {
             logger.info("Starting streaming temp file processing for: {}", fileUrl);
             
+            // Update current file being processed
+            if (monitorService != null) {
+                String filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+                if (filename.contains("?")) {
+                    filename = filename.substring(0, filename.indexOf("?"));
+                }
+                monitorService.setCurrentFile(filename);
+            }
+            
             // Download file to temp storage using FileDownloaderService
             tempFile = fileDownloaderService.downloadFileToTemp(fileUrl);
             if (tempFile == null || !tempFile.exists()) {
@@ -238,8 +247,20 @@ public class ScdfStreamProcessor {
             logger.info("Streaming temp file processing completed successfully for file: {} ({} chunks)", 
                        fileUrl, allChunks.size());
             
+            // Mark file as completed
+            if (monitorService != null) {
+                monitorService.incrementFilesProcessed();
+                monitorService.setCurrentFile(null); // Clear current file
+            }
+            
         } catch (Exception e) {
             logger.error("Error in streaming temp file processing for file {}: {}", fileUrl, e.getMessage(), e);
+            
+            // Track error in monitoring
+            if (monitorService != null) {
+                monitorService.setLastError("Processing file " + fileUrl + ": " + e.getMessage());
+                monitorService.setCurrentFile(null); // Clear current file on error
+            }
         } finally {
             // Clean up temp file
             if (tempFile != null && tempFile.exists()) {
@@ -552,12 +573,19 @@ public class ScdfStreamProcessor {
                 return null;
             }
             
-            String nameWithoutExtension = filename.substring(0, filename.length() - 4);
+            String nameWithoutTxt = filename.substring(0, filename.length() - 4);
+            
+            // Handle double extensions like .pdf.txt - remove any remaining extension
+            String nameWithoutExtensions = nameWithoutTxt;
+            int lastDotIndex = nameWithoutTxt.lastIndexOf('.');
+            if (lastDotIndex > 0) {
+                nameWithoutExtensions = nameWithoutTxt.substring(0, lastDotIndex);
+            }
             
             // Split by dash to get refnum1 and refnum2
-            String[] parts = nameWithoutExtension.split("-");
+            String[] parts = nameWithoutExtensions.split("-");
             if (parts.length != 2) {
-                logger.warn("Filename does not match pattern <refnum1>-<refnum2>.txt: {}", filename);
+                logger.warn("Filename does not match pattern <refnum1>-<refnum2>.[ext].txt: {}", filename);
                 return null;
             }
             
@@ -573,6 +601,7 @@ public class ScdfStreamProcessor {
             }
             
             logger.debug("Extracted reference numbers from filename {}: refnum1={}, refnum2={}", filename, refnum1, refnum2);
+            logger.info("Successfully parsed reference numbers from filename '{}': refnum1={}, refnum2={}", filename, refnum1, refnum2);
             return new ReferenceNumbers(refnum1, refnum2);
             
         } catch (NumberFormatException e) {
