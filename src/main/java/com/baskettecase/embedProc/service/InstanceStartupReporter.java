@@ -56,18 +56,19 @@ public class InstanceStartupReporter {
             metricsPublisher.publishMetrics(new MonitorService.MonitoringData(
                 instanceId,
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                0, // totalChunks
-                0, // processedChunks
-                0, // errorCount
-                0.0, // processingRate
-                "0h 0m", // uptime
-                "STARTED", // status
-                null, // currentFile
-                0, // filesProcessed
-                0, // filesTotal
-                null, // lastError
-                getMemoryUsedMB(), // memoryUsedMB
-                0 // pendingMessages
+                0,
+                0,
+                0,
+                0.0,
+                "0h 0m",
+                "STARTED",
+                null,
+                0,
+                0,
+                null,
+                getMemoryUsedMB(),
+                0,
+                new MonitorService.MonitoringData.Meta("embedProc", null, null, null, null)
             ));
             
             logger.info("Instance startup reported to metrics queue: {}", instanceId);

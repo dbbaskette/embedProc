@@ -31,7 +31,7 @@ public class RabbitMQMetricsPublisher implements MetricsPublisher {
     @Autowired
     public RabbitMQMetricsPublisher(AmqpTemplate amqpTemplate, 
                                    ObjectMapper objectMapper,
-                                   @Value("${app.monitoring.rabbitmq.queue-name:embedproc.metrics}") String queueName) {
+                                    @Value("${app.monitoring.rabbitmq.queue-name:pipeline.metrics}") String queueName) {
         this.amqpTemplate = amqpTemplate;
         this.objectMapper = objectMapper;
         this.queueName = queueName;
@@ -89,7 +89,7 @@ public class RabbitMQMetricsPublisher implements MetricsPublisher {
     public static class MetricsQueueConfiguration {
         
         @Bean
-        public Queue metricsQueue(@Value("${app.monitoring.rabbitmq.queue-name:embedproc.metrics}") String queueName) {
+        public Queue metricsQueue(@Value("${app.monitoring.rabbitmq.queue-name:pipeline.metrics}") String queueName) {
             return new Queue(queueName, true, false, false); // durable, not exclusive, not auto-delete
         }
     }

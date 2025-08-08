@@ -1,17 +1,57 @@
 <div align="center">
   <img src="images/embedProc.jpg" alt="embedProc Logo" width="200"/>
-  <h1>🚀 embedProc</h1>
-  <h3>🔥 Enterprise-Grade Text Embedding Processor with Real-Time Multi-Instance Monitoring</h3>
-  
-  [![Java Version](https://img.shields.io/badge/java-21-brightgreen)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
-  [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.3-brightgreen)](https://spring.io/projects/spring-boot)
-  [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0.0-blue)](https://spring.io/projects/spring-ai)
-  [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-  
-  <h4>💪 Production-Ready • 📊 Multi-Instance Monitoring • 🚄 High-Performance • ☁️ Cloud-Native</h4>
+  <h1>✨🚀 embedProc</h1>
+  <h3>🔥 Enterprise-Grade Text Embedding • 📊 Real-Time Distributed Monitoring • ☁️ Cloud-Native</h3>
+
+  <a href="https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html"><img alt="Java" src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white"></a>
+  <a href="https://spring.io/projects/spring-boot"><img alt="Spring Boot" src="https://img.shields.io/badge/Spring%20Boot-3.5.3-6DB33F?logo=springboot&logoColor=white"></a>
+  <a href="https://spring.io/projects/spring-ai"><img alt="Spring AI" src="https://img.shields.io/badge/Spring%20AI-1.0.0-0FAFE9?logo=spring&logoColor=white"></a>
+  <a href="https://www.rabbitmq.com/"><img alt="RabbitMQ" src="https://img.shields.io/badge/RabbitMQ-Enabled-FF6600?logo=rabbitmq&logoColor=white"></a>
+  <a href="https://www.postgresql.org/"><img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-pgvector-336791?logo=postgresql&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-000000"></a>
+
+  <p>
+    <b>💪 Production-Ready</b> • <b>🎯 Unified Metrics Pipeline</b> • <b>🚄 High-Performance</b>
+  </p>
 </div>
 
 ---
+
+### 🧭 Table of Contents
+- 🔥 Why embedProc
+- 🗺️ Architecture (diagram)
+- 📡 Monitoring & Message Schema
+- 🛠️ Quick Start
+- ☁️ Deploy (Standalone / Cloud)
+- ⚙️ Tuning & Configuration
+- 📈 Performance
+- 📚 Docs & Help
+
+## 🔥 Why embedProc
+Transform distributed text embedding with a single, neutral monitoring queue. All services publish to `pipeline.metrics` and share one schema for effortless cross-service dashboards.
+
+- ✅ Centralized metrics across multi-instance, multi-service pipelines
+- 🧠 Intelligent chunking and vector storage with pgvector
+- 🔌 Pluggable AI: Ollama (local) and OpenAI (cloud)
+- 🛡️ Resilient AMQP publisher with a circuit breaker
+
+## 🗺️ Architecture
+
+```mermaid
+graph LR
+  A["🧾 textProc\nproducer(s)"] -->|meta.service="textProc"| Q((📦 pipeline.metrics))
+  B["🧠 embedProc\nprocessor(s)"] -->|meta.service="embedProc"| Q
+  Q --> D["📊 Central Aggregator / Dashboard"]
+  style Q fill:#fff7e6,stroke:#FF6600,stroke-width:2px
+```
+
+> ℹ️ Unified queue: `pipeline.metrics` (shared across services). Use `meta.service` to distinguish producers.
+
+```properties
+# Minimal monitoring config
+app.monitoring.rabbitmq.enabled=true
+app.monitoring.rabbitmq.queue-name=pipeline.metrics
+```
 
 ## 🌟 What Makes embedProc Special?
 
@@ -62,7 +102,10 @@ Your monitoring setup gets **complete visibility** across all instances:
   "lastError": "Failed to parse reference numbers from filename: malformed-file.txt",
   
   "memoryUsedMB": 512,
-  "pendingMessages": 3
+  "pendingMessages": 3,
+  "meta": {
+    "service": "embedProc"
+  }
 }
 ```
 
@@ -71,10 +114,10 @@ Your monitoring setup gets **complete visibility** across all instances:
 ```properties
 # Enable enterprise monitoring
 app.monitoring.rabbitmq.enabled=true
-app.monitoring.rabbitmq.queue-name=embedproc.metrics
+app.monitoring.rabbitmq.queue-name=pipeline.metrics
 
 # Perfect for multi-instance deployments
-# All 4 instances → Single monitoring queue
+# All instances → Single monitoring queue
 # Real-time updates on every processing event
 ```
 
@@ -134,7 +177,7 @@ app.reference-numbers.default.refnum2=200001
 
 # Enhanced Monitoring
 app.monitoring.rabbitmq.enabled=true
-app.monitoring.rabbitmq.queue-name=embedproc.metrics
+app.monitoring.rabbitmq.queue-name=pipeline.metrics
 ```
 
 #### Run Standalone
@@ -167,7 +210,7 @@ spring.ai.openai.embedding.options.model=text-embedding-3-small
 
 # Enterprise Monitoring (Enabled by Default)
 app.monitoring.rabbitmq.enabled=true
-app.monitoring.rabbitmq.queue-name=embedproc.metrics
+app.monitoring.rabbitmq.queue-name=pipeline.metrics
 
 # Performance Tuning
 app.processing.max-concurrent-files=2
@@ -224,7 +267,7 @@ Unlike traditional monitoring solutions, embedProc provides **operational intell
 
 ### 🔍 Monitoring Consumers
 
-Build powerful monitoring dashboards by consuming from `embedproc.metrics`:
+Build powerful monitoring dashboards by consuming from `pipeline.metrics`:
 
 ```python
 # Example Python consumer
@@ -232,13 +275,13 @@ import pika, json
 
 def process_metrics(ch, method, properties, body):
     metrics = json.loads(body)
-    print(f"Instance {metrics['instanceId']}: Processing {metrics['currentFile']}")
-    print(f"Progress: {metrics['processedChunks']}/{metrics['totalChunks']}")
-    print(f"Memory: {metrics['memoryUsedMB']}MB")
+    svc = metrics.get('meta', {}).get('service', 'unknown')
+    print(f"[💡 {svc}] {metrics['instanceId']} • {metrics.get('status')} • File: {metrics.get('currentFile')}")
+    print(f"Progress: {metrics['processedChunks']}/{metrics['totalChunks']} • Memory: {metrics['memoryUsedMB']}MB")
 
 connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
 channel = connection.channel()
-channel.basic_consume(queue='embedproc.metrics', on_message_callback=process_metrics)
+channel.basic_consume(queue='pipeline.metrics', on_message_callback=process_metrics)
 channel.start_consuming()
 ```
 

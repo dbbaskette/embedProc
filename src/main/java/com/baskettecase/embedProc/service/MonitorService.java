@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -109,7 +110,8 @@ public class MonitorService {
             filesTotal.get(),
             lastError,
             getMemoryUsedMB(),
-            getPendingMessages()
+            getPendingMessages(),
+            new MonitoringData.Meta("embedProc", null, null, null, null)
         );
     }
 
@@ -164,6 +166,7 @@ public class MonitorService {
         return Math.max(0, total - processed);
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class MonitoringData {
         private final String instanceId;
         private final String timestamp;
@@ -181,12 +184,13 @@ public class MonitorService {
         // Priority 2 fields
         private final long memoryUsedMB;
         private final long pendingMessages;
+        private final Meta meta;
 
         public MonitoringData(String instanceId, String timestamp, long totalChunks, 
                              long processedChunks, long errorCount, double processingRate, 
                              String uptime, String status, String currentFile, 
                              long filesProcessed, long filesTotal, String lastError,
-                             long memoryUsedMB, long pendingMessages) {
+                             long memoryUsedMB, long pendingMessages, Meta meta) {
             this.instanceId = instanceId;
             this.timestamp = timestamp;
             this.totalChunks = totalChunks;
@@ -201,6 +205,7 @@ public class MonitorService {
             this.lastError = lastError;
             this.memoryUsedMB = memoryUsedMB;
             this.pendingMessages = pendingMessages;
+            this.meta = meta;
         }
 
         // Getters
@@ -218,5 +223,33 @@ public class MonitorService {
         public String getLastError() { return lastError; }
         public long getMemoryUsedMB() { return memoryUsedMB; }
         public long getPendingMessages() { return pendingMessages; }
+        public Meta getMeta() { return meta; }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public static class Meta {
+            private final String service;
+            private final String processingState;
+            private final String bindingState;
+            private final Boolean hdfsProcessedDirExists;
+            private final String inputMode;
+
+            public Meta(String service,
+                        String processingState,
+                        String bindingState,
+                        Boolean hdfsProcessedDirExists,
+                        String inputMode) {
+                this.service = service;
+                this.processingState = processingState;
+                this.bindingState = bindingState;
+                this.hdfsProcessedDirExists = hdfsProcessedDirExists;
+                this.inputMode = inputMode;
+            }
+
+            public String getService() { return service; }
+            public String getProcessingState() { return processingState; }
+            public String getBindingState() { return bindingState; }
+            public Boolean getHdfsProcessedDirExists() { return hdfsProcessedDirExists; }
+            public String getInputMode() { return inputMode; }
+        }
     }
 }

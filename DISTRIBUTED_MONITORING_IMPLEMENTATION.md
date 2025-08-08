@@ -47,7 +47,8 @@ Published to RabbitMQ as JSON:
   "errorCount": 2,
   "processingRate": 12.5,
   "uptime": "2h 15m",
-  "status": "PROCESSING"
+  "status": "PROCESSING",
+  "meta": { "service": "embedProc" }
 }
 ```
 
@@ -57,7 +58,7 @@ Published to RabbitMQ as JSON:
 ```properties
 # application-cloud.properties
 app.monitoring.rabbitmq.enabled=true
-app.monitoring.rabbitmq.queue-name=embedproc.metrics
+app.monitoring.rabbitmq.queue-name=pipeline.metrics
 ```
 
 #### Local Development
@@ -129,14 +130,14 @@ curl http://localhost:8080/api/metrics
 | Property | Default | Description |
 |----------|---------|-------------|
 | `app.monitoring.rabbitmq.enabled` | `false` | Enable RabbitMQ metrics publishing |
-| `app.monitoring.rabbitmq.queue-name` | `embedproc.metrics` | RabbitMQ queue name |
+| `app.monitoring.rabbitmq.queue-name` | `pipeline.metrics` | RabbitMQ queue name |
 | `spring.main.web-application-type` | `servlet` | Enable web for monitoring UI |
 
 ## Future Centralized Dashboard
 
 The RabbitMQ metrics stream is now ready for your centralized dashboard application, which could:
 
-1. **Consume** from `embedproc.metrics` queue
+1. **Consume** from `pipeline.metrics` queue
 2. **Aggregate** metrics from all instances
 3. **Display** unified dashboard showing:
    - Total system throughput
