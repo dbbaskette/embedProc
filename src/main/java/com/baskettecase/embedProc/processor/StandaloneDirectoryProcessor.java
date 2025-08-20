@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
+import com.baskettecase.embedProc.service.DocumentType;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,11 +92,25 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
                 if (refNumbers != null) {
                     logger.info("Storing embedding with reference numbers from filename - refnum1: {}, refnum2: {}", 
                                refNumbers.refnum1, refNumbers.refnum2);
-                    embeddingService.storeEmbeddingWithMetadata(content, refNumbers.refnum1, refNumbers.refnum2);
+                    // Determine document type from file path
+                    DocumentType documentType = DocumentType.fromUrl(file.toString());
+                    // For reference documents, don't include refnums
+                    if (documentType == DocumentType.REFERENCE) {
+                        embeddingService.storeEmbeddingWithMetadata(content, null, null, documentType, file.toString());
+                    } else {
+                        embeddingService.storeEmbeddingWithMetadata(content, refNumbers.refnum1, refNumbers.refnum2, documentType, file.toString());
+                    }
                 } else {
                     // Fall back to default reference numbers if filename parsing fails
                     logger.warn("Could not extract reference numbers from filename: {}, using defaults", file.getFileName());
-                    embeddingService.storeEmbeddingWithMetadata(content, defaultRefnum1, defaultRefnum2);
+                    // Determine document type from file path
+                    DocumentType documentType = DocumentType.fromUrl(file.toString());
+                    // For reference documents, don't include refnums
+                    if (documentType == DocumentType.REFERENCE) {
+                        embeddingService.storeEmbeddingWithMetadata(content, null, null, documentType, file.toString());
+                    } else {
+                        embeddingService.storeEmbeddingWithMetadata(content, defaultRefnum1, defaultRefnum2, documentType, file.toString());
+                    }
                 }
             } else {
                 // Store embedding using the regular EmbeddingService

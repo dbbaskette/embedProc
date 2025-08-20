@@ -86,7 +86,7 @@ Your monitoring setup gets **complete visibility** across all instances:
 ```json
 {
   "instanceId": "embedProc-0",
-  "timestamp": "2025-08-07T01:03:46",
+  "timestamp": "2025-08-07T01:03:46Z",
   "status": "PROCESSING",
   "uptime": "2h 15m",
   
@@ -120,6 +120,8 @@ app.monitoring.rabbitmq.queue-name=pipeline.metrics
 # All instances → Single monitoring queue
 # Real-time updates on every processing event
 ```
+
+Note: Timestamps are ISO 8601 in UTC (e.g., `2025-08-07T01:03:46Z`).
 
 ### 📈 What You Get
 
@@ -375,6 +377,11 @@ java -jar target/embedProc-0.0.5.jar \
 2. **Performance Problems**: Review monitoring metrics
 3. **Deployment Issues**: Verify database and AI provider connectivity
 4. **Monitoring Setup**: Ensure RabbitMQ is accessible
+
+### 📚 Related Docs
+- `implementation_details.md`
+- `DISTRIBUTED_MONITORING_IMPLEMENTATION.md`
+- `RABBIT_MONITORING_INTEGRATION.md` (shared schema & how-to)
 
 ---
 

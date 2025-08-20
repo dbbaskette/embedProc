@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.micrometer.core.instrument.Counter;
 import org.springframework.context.annotation.Profile;
+import com.baskettecase.embedProc.service.DocumentType;
 
 import java.util.HashMap;
 import java.util.List;
@@ -196,21 +197,59 @@ public class EmbeddingService {
      * @param refnum2 Second 6-digit reference number
      */
     public void storeEmbeddingWithMetadata(String text, Integer refnum1, Integer refnum2) {
+        storeEmbeddingWithMetadata(text, refnum1, refnum2, DocumentType.UNKNOWN, null);
+    }
+
+    /**
+     * Store embedding with metadata, document type, and source path
+     * @param text The text content to embed
+     * @param refnum1 First 6-digit reference number (can be null for reference documents)
+     * @param refnum2 Second 6-digit reference number (can be null for reference documents)
+     * @param documentType The type of document
+     * @param sourcePath The source path/URL of the document
+     */
+    public void storeEmbeddingWithMetadata(String text, Integer refnum1, Integer refnum2, DocumentType documentType, String sourcePath) {
         try {
             if (text == null || text.trim().isEmpty()) {
                 logger.warn("Attempted to store empty text, skipping");
                 return;
             }
 
-            // Validate reference numbers (6-digit integers)
-            validateReferenceNumber(refnum1, "refnum1");
-            validateReferenceNumber(refnum2, "refnum2");
-
-            // Create metadata map with reference numbers
+            // Create metadata map
             Map<String, Object> metadata = new HashMap<>();
-            metadata.put("refnum1", refnum1);
-            metadata.put("refnum2", refnum2);
             metadata.put("timestamp", System.currentTimeMillis());
+            
+            // Add document type specific metadata
+            switch (documentType) {
+                case POLICY:
+                    // For policies, validate and include reference numbers
+                    validateReferenceNumber(refnum1, "refnum1");
+                    validateReferenceNumber(refnum2, "refnum2");
+                    metadata.put("refnum1", refnum1);
+                    metadata.put("refnum2", refnum2);
+                    break;
+                case REFERENCE:
+                    // For reference documents, add doctype=information (no refnums needed)
+                    metadata.put("doctype", "information");
+                    break;
+                case UNKNOWN:
+                default:
+                    // For unknown types, add the document type for debugging
+                    metadata.put("documentType", documentType.getValue());
+                    // Include refnums if they exist (for backward compatibility)
+                    if (refnum1 != null) {
+                        metadata.put("refnum1", refnum1);
+                    }
+                    if (refnum2 != null) {
+                        metadata.put("refnum2", refnum2);
+                    }
+                    break;
+            }
+            
+            // Add source path if available
+            if (sourcePath != null) {
+                metadata.put("sourcePath", sourcePath);
+            }
 
             // Create document with metadata
             Document doc = new Document(text, metadata);
@@ -223,8 +262,8 @@ public class EmbeddingService {
                 monitorService.incrementProcessedChunks(1);
             }
             
-            logger.debug("Successfully stored embedding with metadata - refnum1: {}, refnum2: {}", 
-                        refnum1, refnum2);
+            logger.debug("Successfully stored embedding with metadata - documentType: {}, refnums: {}/{}, sourcePath: {}", 
+                        documentType, refnum1, refnum2, sourcePath);
             
         } catch (Exception e) {
             embeddingErrorCounter.increment();
@@ -234,8 +273,8 @@ public class EmbeddingService {
                 monitorService.incrementErrors(1);
             }
             
-            logger.error("Failed to store embedding with metadata (refnum1: {}, refnum2: {}). Text preview: '{}'. Error: {}", 
-                        refnum1, refnum2,
+            logger.error("Failed to store embedding with metadata (documentType: {}). Text preview: '{}'. Error: {}", 
+                        documentType,
                         text != null ? text.substring(0, Math.min(text.length(), 50)) + "..." : "null", 
                         e.getMessage());
             // Don't throw exception - just log the error
@@ -249,16 +288,26 @@ public class EmbeddingService {
         private final String text;
         private final Integer refnum1;
         private final Integer refnum2;
+        private final DocumentType documentType;
+        private final String sourcePath;
 
         public TextWithMetadata(String text, Integer refnum1, Integer refnum2) {
+            this(text, refnum1, refnum2, DocumentType.UNKNOWN, null);
+        }
+
+        public TextWithMetadata(String text, Integer refnum1, Integer refnum2, DocumentType documentType, String sourcePath) {
             this.text = text;
             this.refnum1 = refnum1;
             this.refnum2 = refnum2;
+            this.documentType = documentType;
+            this.sourcePath = sourcePath;
         }
 
         public String getText() { return text; }
         public Integer getRefnum1() { return refnum1; }
         public Integer getRefnum2() { return refnum2; }
+        public DocumentType getDocumentType() { return documentType; }
+        public String getSourcePath() { return sourcePath; }
 
         @Override
         public String toString() {
@@ -339,13 +388,40 @@ public class EmbeddingService {
      */
     private Document createDocumentWithMetadata(TextWithMetadata textWithMetadata) {
         try {
-            validateReferenceNumber(textWithMetadata.getRefnum1(), "refnum1");
-            validateReferenceNumber(textWithMetadata.getRefnum2(), "refnum2");
-            
             Map<String, Object> metadata = new HashMap<>();
-            metadata.put("refnum1", textWithMetadata.getRefnum1());
-            metadata.put("refnum2", textWithMetadata.getRefnum2());
             metadata.put("timestamp", System.currentTimeMillis());
+            
+            // Add document type specific metadata
+            switch (textWithMetadata.getDocumentType()) {
+                case POLICY:
+                    // For policies, validate and include reference numbers
+                    validateReferenceNumber(textWithMetadata.getRefnum1(), "refnum1");
+                    validateReferenceNumber(textWithMetadata.getRefnum2(), "refnum2");
+                    metadata.put("refnum1", textWithMetadata.getRefnum1());
+                    metadata.put("refnum2", textWithMetadata.getRefnum2());
+                    break;
+                case REFERENCE:
+                    // For reference documents, add doctype=information (no refnums needed)
+                    metadata.put("doctype", "information");
+                    break;
+                case UNKNOWN:
+                default:
+                    // For unknown types, add the document type for debugging
+                    metadata.put("documentType", textWithMetadata.getDocumentType().getValue());
+                    // Include refnums if they exist (for backward compatibility)
+                    if (textWithMetadata.getRefnum1() != null) {
+                        metadata.put("refnum1", textWithMetadata.getRefnum1());
+                    }
+                    if (textWithMetadata.getRefnum2() != null) {
+                        metadata.put("refnum2", textWithMetadata.getRefnum2());
+                    }
+                    break;
+            }
+            
+            // Add source path if available
+            if (textWithMetadata.getSourcePath() != null) {
+                metadata.put("sourcePath", textWithMetadata.getSourcePath());
+            }
             
             return new Document(textWithMetadata.getText(), metadata);
         } catch (Exception e) {

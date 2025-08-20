@@ -54,3 +54,5 @@ temp/
 
 # Release artifacts
 .release-exec
+*.yml
+*.properties

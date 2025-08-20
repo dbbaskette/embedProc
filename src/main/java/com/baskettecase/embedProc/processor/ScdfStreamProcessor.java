@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.FileDownloaderService;
 import com.baskettecase.embedProc.service.TextChunkingService;
 import com.baskettecase.embedProc.service.EmbeddingService;
+import com.baskettecase.embedProc.service.DocumentType;
 
 import com.baskettecase.embedProc.service.MonitorService;
 
@@ -212,8 +213,16 @@ public class ScdfStreamProcessor {
                     }
                     
                     // Convert to TextWithMetadata and use embedding service with metadata
+                    DocumentType documentType = DocumentType.fromUrl(fileUrl);
                     List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
-                        .map(text -> new EmbeddingService.TextWithMetadata(text, refnum1, refnum2))
+                        .map(text -> {
+                            // For reference documents, don't include refnums
+                            if (documentType == DocumentType.REFERENCE) {
+                                return new EmbeddingService.TextWithMetadata(text, null, null, documentType, fileUrl);
+                            } else {
+                                return new EmbeddingService.TextWithMetadata(text, refnum1, refnum2, documentType, fileUrl);
+                            }
+                        })
                         .collect(java.util.stream.Collectors.toList());
                     embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
                 } else {
@@ -239,17 +248,27 @@ public class ScdfStreamProcessor {
             }
             
             // Final completion metric
+            String completedFilename = null;
             if (monitorService != null) {
                 logger.info("File processing completed: {} chunks processed for file: {}", 
                            allChunks.size(), fileUrl);
+                try {
+                    completedFilename = fileUrl.substring(fileUrl.lastIndexOf('/') + 1);
+                    if (completedFilename.contains("?")) {
+                        completedFilename = completedFilename.substring(0, completedFilename.indexOf('?'));
+                    }
+                } catch (Exception ignored) {}
             }
             
             logger.info("Streaming temp file processing completed successfully for file: {} ({} chunks)", 
                        fileUrl, allChunks.size());
             
-            // Mark file as completed
+            // Mark file as completed and emit FILE_PROCESSED event
             if (monitorService != null) {
                 monitorService.incrementFilesProcessed();
+                if (completedFilename != null) {
+                    monitorService.publishEvent("FILE_COMPLETE", completedFilename);
+                }
                 monitorService.setCurrentFile(null); // Clear current file
             }
             
@@ -371,8 +390,16 @@ public class ScdfStreamProcessor {
                 }
                 
                 // Convert to TextWithMetadata and use embedding service with metadata
+                DocumentType documentType = DocumentType.fromUrl(fileUrl);
                 List<EmbeddingService.TextWithMetadata> metadataChunks = allChunks.stream()
-                    .map(text -> new EmbeddingService.TextWithMetadata(text, refnum1, refnum2))
+                    .map(text -> {
+                        // For reference documents, don't include refnums
+                        if (documentType == DocumentType.REFERENCE) {
+                            return new EmbeddingService.TextWithMetadata(text, null, null, documentType, fileUrl);
+                        } else {
+                            return new EmbeddingService.TextWithMetadata(text, refnum1, refnum2, documentType, fileUrl);
+                        }
+                    })
                     .collect(java.util.stream.Collectors.toList());
                 embeddingService.storeEmbeddingsWithMetadataParallel(metadataChunks);
             } else {
@@ -438,8 +465,16 @@ public class ScdfStreamProcessor {
                     Integer refnum2 = refNumbers != null ? refNumbers.refnum2 : defaultRefnum2;
                     
                     // Convert to TextWithMetadata and use embedding service with metadata
+                    DocumentType documentType = DocumentType.fromUrl(fileUrl);
                     List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
-                        .map(text -> new EmbeddingService.TextWithMetadata(text, refnum1, refnum2))
+                        .map(text -> {
+                            // For reference documents, don't include refnums
+                            if (documentType == DocumentType.REFERENCE) {
+                                return new EmbeddingService.TextWithMetadata(text, null, null, documentType, fileUrl);
+                            } else {
+                                return new EmbeddingService.TextWithMetadata(text, refnum1, refnum2, documentType, fileUrl);
+                            }
+                        })
                         .collect(java.util.stream.Collectors.toList());
                     embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
                 } else {
@@ -505,11 +540,19 @@ public class ScdfStreamProcessor {
                 
                 // Store embeddings for this batch using parallel processing
                 if (useReferenceNumbers) {
-                                    // Convert to TextWithMetadata and use embedding service with metadata
-                List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
-                    .map(text -> new EmbeddingService.TextWithMetadata(text, defaultRefnum1, defaultRefnum2))
-                    .collect(java.util.stream.Collectors.toList());
-                embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
+                    // Convert to TextWithMetadata and use embedding service with metadata
+                    DocumentType documentType = DocumentType.fromUrl(fileUrl);
+                    List<EmbeddingService.TextWithMetadata> metadataBatch = batch.stream()
+                        .map(text -> {
+                            // For reference documents, don't include refnums
+                            if (documentType == DocumentType.REFERENCE) {
+                                return new EmbeddingService.TextWithMetadata(text, null, null, documentType, fileUrl);
+                            } else {
+                                return new EmbeddingService.TextWithMetadata(text, defaultRefnum1, defaultRefnum2, documentType, fileUrl);
+                            }
+                        })
+                        .collect(java.util.stream.Collectors.toList());
+                    embeddingService.storeEmbeddingsWithMetadataParallel(metadataBatch);
                 } else {
                     embeddingService.storeEmbeddingsParallel(batch);
                 }

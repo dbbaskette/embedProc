@@ -48,6 +48,8 @@ Published to RabbitMQ as JSON:
   "processingRate": 12.5,
   "uptime": "2h 15m",
   "status": "PROCESSING",
+  "hostname": "ip-10-0-1-23.ec2.internal",
+  "publicHostname": "embedproc-blue.cfapps.io",
   "meta": { "service": "embedProc" }
 }
 ```

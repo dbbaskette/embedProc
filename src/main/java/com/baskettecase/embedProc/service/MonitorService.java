@@ -9,8 +9,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.net.InetAddress;
+import java.net.URI;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicLong;
 import java.time.Duration;
@@ -28,6 +32,11 @@ public class MonitorService {
     private final MetricsPublisher metricsPublisher;
     private final String instanceId;
     private final Instant startTime;
+    private final String publicAppUri;
+    private final String monitoringUrl;
+    private final String appVersion;
+    private final String processorMode;
+    private final int serverPort;
     
     // Tracking metrics
     private final AtomicLong totalChunks = new AtomicLong(0);
@@ -44,13 +53,24 @@ public class MonitorService {
                          MeterRegistry meterRegistry,
                          MetricsPublisher metricsPublisher,
                          @Value("${spring.application.name:embedProc}") String appName,
-                         @Value("${CF_INSTANCE_INDEX:${INSTANCE_ID:0}}") String instanceIndex) {
+                          @Value("${CF_INSTANCE_INDEX:${INSTANCE_ID:0}}") String instanceIndex,
+                          @Value("${app.monitoring.instance-id:}") String configuredInstanceId,
+                          @Value("${app.monitoring.public-app-uri:}") String publicAppUri,
+                          @Value("${app.monitoring.url:}") String monitoringUrl,
+                          @Value("${info.app.version:unknown}") String appVersion,
+                          @Value("${app.processor.mode:standalone}") String processorMode,
+                          @Value("${server.port:${PORT:8080}}") int serverPort) {
         this.embeddingProcessedCounter = embeddingProcessedCounter;
         this.embeddingErrorCounter = embeddingErrorCounter;
         this.meterRegistry = meterRegistry;
         this.metricsPublisher = metricsPublisher;
-        this.instanceId = appName + "-" + instanceIndex;
+        this.instanceId = resolveInstanceId(configuredInstanceId, appName, instanceIndex, processorMode);
         this.startTime = Instant.now();
+        this.publicAppUri = publicAppUri;
+        this.monitoringUrl = monitoringUrl;
+        this.appVersion = appVersion;
+        this.processorMode = processorMode;
+        this.serverPort = serverPort;
         
         logger.info("MonitorService initialized for instance: {}", instanceId);
     }
@@ -98,7 +118,7 @@ public class MonitorService {
     public MonitoringData getMonitoringData() {
         return new MonitoringData(
             instanceId,
-            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+            OffsetDateTime.now(ZoneOffset.UTC).toString(),
             totalChunks.get(),
             processedChunks.get(),
             errorCount.get(),
@@ -111,7 +131,69 @@ public class MonitorService {
             lastError,
             getMemoryUsedMB(),
             getPendingMessages(),
-            new MonitoringData.Meta("embedProc", null, null, null, null)
+            new MonitoringData.Meta("embedProc", null, "running", null, processorMode),
+            resolveHostname(),
+            resolvePublicHostname(),
+            null,
+            null,
+            resolveUrl(),
+            startTime.toEpochMilli(),
+            appVersion
+        );
+    }
+
+    public MonitoringData getMonitoringDataWithEvent(String event, String filename) {
+        String stage = computeProcessingStage(event);
+        return new MonitoringData(
+            instanceId,
+            OffsetDateTime.now(ZoneOffset.UTC).toString(),
+            totalChunks.get(),
+            processedChunks.get(),
+            errorCount.get(),
+            calculateProcessingRate(),
+            getUptime(),
+            determineStatus(),
+            currentFile,
+            filesProcessed.get(),
+            filesTotal.get(),
+            lastError,
+            getMemoryUsedMB(),
+            getPendingMessages(),
+            new MonitoringData.Meta("embedProc", stage, "running", null, processorMode),
+            resolveHostname(),
+            resolvePublicHostname(),
+            event,
+            filename,
+            resolveUrl(),
+            startTime.toEpochMilli(),
+            appVersion
+        );
+    }
+
+    public MonitoringData getMonitoringDataWithEvent(String event, String filename, String statusOverride, String processingStageOverride) {
+        return new MonitoringData(
+            instanceId,
+            OffsetDateTime.now(ZoneOffset.UTC).toString(),
+            totalChunks.get(),
+            processedChunks.get(),
+            errorCount.get(),
+            calculateProcessingRate(),
+            getUptime(),
+            statusOverride != null ? statusOverride : determineStatus(),
+            currentFile,
+            filesProcessed.get(),
+            filesTotal.get(),
+            lastError,
+            getMemoryUsedMB(),
+            getPendingMessages(),
+            new MonitoringData.Meta("embedProc", processingStageOverride != null ? processingStageOverride : computeProcessingStage(event), "running", null, processorMode),
+            resolveHostname(),
+            resolvePublicHostname(),
+            event,
+            filename,
+            resolveUrl(),
+            startTime.toEpochMilli(),
+            appVersion
         );
     }
 
@@ -121,6 +203,14 @@ public class MonitorService {
         } catch (Exception e) {
             logger.debug("Failed to publish metrics to RabbitMQ: {}", e.getMessage());
             // Don't let RabbitMQ failures affect the main processing
+        }
+    }
+
+    public void publishEvent(String event, String filename) {
+        try {
+            metricsPublisher.publishMetrics(getMonitoringDataWithEvent(event, filename));
+        } catch (Exception e) {
+            logger.debug("Failed to publish {} event to RabbitMQ: {}", event, e.getMessage());
         }
     }
 
@@ -166,6 +256,100 @@ public class MonitorService {
         return Math.max(0, total - processed);
     }
 
+    private String resolveHostname() {
+        try {
+            return InetAddress.getLocalHost().getCanonicalHostName();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String resolvePublicHostname() {
+        if (publicAppUri == null || publicAppUri.isBlank()) {
+            // Attempt to resolve from VCAP_APPLICATION (Cloud Foundry) if available
+            try {
+                String vcap = System.getenv("VCAP_APPLICATION");
+                if (vcap != null && vcap.contains("uris")) {
+                    int idx = vcap.indexOf("[");
+                    int end = vcap.indexOf("]", idx + 1);
+                    if (idx >= 0 && end > idx) {
+                        String arr = vcap.substring(idx + 1, end);
+                        String first = arr.split(",")[0].replace("\"", "").trim();
+                        if (!first.isEmpty()) {
+                            URI uri = new URI("https://" + first);
+                            return uri.getHost();
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            return null;
+        }
+        try {
+            return new URI(publicAppUri).getHost();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String resolveUrl() {
+        try {
+            if (monitoringUrl != null && !monitoringUrl.isBlank()) {
+                return monitoringUrl;
+            }
+            String publicHost = resolvePublicHostname();
+            if (publicHost != null && !publicHost.isBlank()) {
+                return "http://" + publicHost + ":" + serverPort;
+            }
+            String host = resolveHostname();
+            if (host != null && !host.isBlank()) {
+                return "http://" + host + ":" + serverPort;
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String resolveInstanceId(String configuredInstanceId, String appName, String instanceIndex, String processorMode) {
+        if (configuredInstanceId != null && !configuredInstanceId.isBlank()) {
+            return configuredInstanceId;
+        }
+        // SCDF/cloud mode keeps appName-instanceIndex
+        if ("scdf".equalsIgnoreCase(processorMode) || "cloud".equalsIgnoreCase(processorMode)) {
+            return appName + "-" + instanceIndex;
+        }
+        // Default: service-pid@hostname
+        try {
+            long pid = java.lang.ProcessHandle.current().pid();
+            String host = resolveHostname();
+            String service = appName != null && !appName.isBlank() ? appName : "embedProc";
+            return service + "-" + pid + "@" + (host != null ? host : "unknown");
+        } catch (Throwable t) {
+            return appName + "-" + instanceIndex;
+        }
+    }
+
+    private String computeProcessingStage(String event) {
+        if (event != null) {
+            switch (event) {
+                case "INIT":
+                    return "starting";
+                case "HEARTBEAT":
+                    return (currentFile != null ? "processing" : "idle");
+                case "FILE_START":
+                case "FILE_COMPLETE":
+                    return "processing";
+                case "ERROR":
+                    return "error";
+                case "SHUTDOWN":
+                    return "stopping";
+                default:
+                    break;
+            }
+        }
+        return (currentFile != null ? "processing" : "idle");
+    }
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class MonitoringData {
         private final String instanceId;
@@ -185,12 +369,22 @@ public class MonitorService {
         private final long memoryUsedMB;
         private final long pendingMessages;
         private final Meta meta;
+        private final String hostname;
+        private final String publicHostname;
+        private final String event;
+        private final String filename;
+        private final String url;
+        private final Long bootEpoch;
+        private final String version;
 
         public MonitoringData(String instanceId, String timestamp, long totalChunks, 
                              long processedChunks, long errorCount, double processingRate, 
                              String uptime, String status, String currentFile, 
                              long filesProcessed, long filesTotal, String lastError,
-                             long memoryUsedMB, long pendingMessages, Meta meta) {
+                             long memoryUsedMB, long pendingMessages, Meta meta,
+                             String hostname, String publicHostname,
+                             String event, String filename,
+                             String url, Long bootEpoch, String version) {
             this.instanceId = instanceId;
             this.timestamp = timestamp;
             this.totalChunks = totalChunks;
@@ -206,6 +400,13 @@ public class MonitorService {
             this.memoryUsedMB = memoryUsedMB;
             this.pendingMessages = pendingMessages;
             this.meta = meta;
+            this.hostname = hostname;
+            this.publicHostname = publicHostname;
+            this.event = event;
+            this.filename = filename;
+            this.url = url;
+            this.bootEpoch = bootEpoch;
+            this.version = version;
         }
 
         // Getters
@@ -224,29 +425,36 @@ public class MonitorService {
         public long getMemoryUsedMB() { return memoryUsedMB; }
         public long getPendingMessages() { return pendingMessages; }
         public Meta getMeta() { return meta; }
+        public String getHostname() { return hostname; }
+        public String getPublicHostname() { return publicHostname; }
+        public String getEvent() { return event; }
+        public String getFilename() { return filename; }
+        public String getUrl() { return url; }
+        public Long getBootEpoch() { return bootEpoch; }
+        public String getVersion() { return version; }
 
         @JsonInclude(JsonInclude.Include.NON_NULL)
         public static class Meta {
             private final String service;
-            private final String processingState;
+            private final String processingStage;
             private final String bindingState;
             private final Boolean hdfsProcessedDirExists;
             private final String inputMode;
 
             public Meta(String service,
-                        String processingState,
+                        String processingStage,
                         String bindingState,
                         Boolean hdfsProcessedDirExists,
                         String inputMode) {
                 this.service = service;
-                this.processingState = processingState;
+                this.processingStage = processingStage;
                 this.bindingState = bindingState;
                 this.hdfsProcessedDirExists = hdfsProcessedDirExists;
                 this.inputMode = inputMode;
             }
 
             public String getService() { return service; }
-            public String getProcessingState() { return processingState; }
+            public String getProcessingStage() { return processingStage; }
             public String getBindingState() { return bindingState; }
             public Boolean getHdfsProcessedDirExists() { return hdfsProcessedDirExists; }
             public String getInputMode() { return inputMode; }

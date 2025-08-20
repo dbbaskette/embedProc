@@ -19,27 +19,37 @@ class RabbitMQMetricsPublisherTest {
         ObjectMapper objectMapper = new ObjectMapper();
         String expectedQueue = "pipeline.metrics";
 
-        RabbitMQMetricsPublisher publisher = new RabbitMQMetricsPublisher(amqpTemplate, objectMapper, expectedQueue);
+        // Use reflection to avoid direct compile-time reference
+        Class<?> clazz = Class.forName("com.baskettecase.embedProc.service.RabbitMQMetricsPublisher");
+        Object publisher = clazz.getConstructor(AmqpTemplate.class, ObjectMapper.class, String.class)
+                .newInstance(amqpTemplate, objectMapper, expectedQueue);
 
         MonitorService.MonitoringData data = new MonitorService.MonitoringData(
                 "embedProc-0",
                 "2025-01-01T00:00:00",
-                1,
-                1,
-                0,
+                1L,
+                1L,
+                0L,
                 1.0,
                 "0h 1m",
                 "IDLE",
                 null,
-                0,
-                0,
+                0L,
+                0L,
                 null,
-                100,
-                0,
-                new MonitorService.MonitoringData.Meta("embedProc", null, null, null, null)
+                100L,
+                0L,
+                new MonitorService.MonitoringData.Meta("embedProc", null, null, null, null),
+                "ip-10-0-1-23.ec2.internal",
+                "embedproc.example.com",
+                "HEARTBEAT",
+                null,
+                "http://embedproc.example.com:8080",
+                1723100000000L,
+                "0.0.5"
         );
 
-        publisher.publishMetrics(data);
+        ((MetricsPublisher) publisher).publishMetrics(data);
 
         ArgumentCaptor<String> queueCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
@@ -65,6 +75,13 @@ class RabbitMQMetricsPublisherTest {
         // New meta field
         assertThat(json.has("meta")).isTrue();
         assertThat(json.get("meta").get("service").asText()).isEqualTo("embedProc");
+
+        // Host fields
+        assertThat(json.get("hostname").asText()).isEqualTo("ip-10-0-1-23.ec2.internal");
+        assertThat(json.get("publicHostname").asText()).isEqualTo("embedproc.example.com");
+
+        // Event field present
+        assertThat(json.get("event").asText()).isEqualTo("HEARTBEAT");
     }
 }
 

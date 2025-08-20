@@ -9,8 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,6 +20,7 @@ public class InstanceStartupReporter {
     
     private final MetricsPublisher metricsPublisher;
     private final ObjectMapper objectMapper;
+    private final MonitorService monitorService;
     private final String instanceId;
     private final String appName;
     private final String instanceIndex;
@@ -28,10 +28,12 @@ public class InstanceStartupReporter {
     @Autowired
     public InstanceStartupReporter(MetricsPublisher metricsPublisher,
                                    ObjectMapper objectMapper,
+                                   MonitorService monitorService,
                                    @Value("${spring.application.name:embedProc}") String appName,
                                    @Value("${CF_INSTANCE_INDEX:${INSTANCE_ID:0}}") String instanceIndex) {
         this.metricsPublisher = metricsPublisher;
         this.objectMapper = objectMapper;
+        this.monitorService = monitorService;
         this.appName = appName;
         this.instanceIndex = instanceIndex;
         this.instanceId = appName + "-" + instanceIndex;
@@ -48,28 +50,12 @@ public class InstanceStartupReporter {
             startupMessage.put("instanceId", instanceId);
             startupMessage.put("appName", appName);
             startupMessage.put("instanceIndex", instanceIndex);
-            startupMessage.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+            startupMessage.put("timestamp", OffsetDateTime.now().toString());
             startupMessage.put("status", "STARTED");
             startupMessage.put("message", "Instance started successfully");
             
-            // Publish startup metrics to RabbitMQ queue
-            metricsPublisher.publishMetrics(new MonitorService.MonitoringData(
-                instanceId,
-                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                0,
-                0,
-                0,
-                0.0,
-                "0h 0m",
-                "STARTED",
-                null,
-                0,
-                0,
-                null,
-                getMemoryUsedMB(),
-                0,
-                new MonitorService.MonitoringData.Meta("embedProc", null, null, null, null)
-            ));
+            // Publish startup INIT event with status STARTING and processingStage starting
+            metricsPublisher.publishMetrics(monitorService.getMonitoringDataWithEvent("INIT", null, "STARTING", "starting"));
             
             logger.info("Instance startup reported to metrics queue: {}", instanceId);
             

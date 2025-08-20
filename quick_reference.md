@@ -33,6 +33,8 @@
 ### Monitoring Configuration
 - `app.monitoring.rabbitmq.enabled`: Enable RabbitMQ metrics publishing
 - `app.monitoring.rabbitmq.queue-name`: RabbitMQ queue name for metrics
+- `app.monitoring.instance-id`: Optional stable instance ID override
+- `app.monitoring.public-app-uri`: Optional public app URI to derive `publicHostname`
 
 ### Enhanced Chunking Configuration
 - `app.chunking.max-words-per-chunk`: Maximum words per chunk (800-1200 recommended for Q&A)
