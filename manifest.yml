@@ -2,7 +2,7 @@
 applications:
 - name: embedproc
   random-route: true
-  path: ./target/embedProc-5.6.0.jar
+  path: ./target/embedProc-5.7.0.jar
   env:
     # Application Configuration
     SPRING_PROFILES_ACTIVE: cloud

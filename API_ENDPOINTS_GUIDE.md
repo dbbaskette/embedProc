@@ -28,7 +28,7 @@ curl -X GET http://localhost:8080/api/processing/state
 ```json
 {
   "enabled": true,
-  "status": "ENABLED",
+  "status": "STARTED",
   "consumerStatus": "CONSUMING",
   "lastChanged": "2025-01-01T12:34:56.789Z",
   "lastChangeReason": "Initial state",
@@ -52,7 +52,7 @@ curl -X POST http://localhost:8080/api/processing/start
   "message": "Processing started successfully",
   "stateChanged": true,
   "enabled": true,
-  "status": "ENABLED",
+  "status": "STARTED",
   "consumerStatus": "CONSUMING",
   "lastChanged": "2025-01-01T12:35:10.456Z",
   "timestamp": "2025-01-01T12:35:10.456Z"
@@ -75,7 +75,7 @@ curl -X POST http://localhost:8080/api/processing/stop
   "message": "Processing stopped successfully. Messages will remain in queue.",
   "stateChanged": true,
   "enabled": false,
-  "status": "DISABLED",
+  "status": "STOPPED",
   "consumerStatus": "IDLE",
   "lastChanged": "2025-01-01T12:35:20.789Z",
   "timestamp": "2025-01-01T12:35:20.789Z"
@@ -103,7 +103,7 @@ curl -X POST http://localhost:8080/api/processing/toggle
   },
   "currentState": {
     "enabled": false,
-    "status": "DISABLED",
+    "status": "STOPPED",
     "consumerStatus": "IDLE"
   },
   "lastChanged": "2025-01-01T12:35:30.123Z",
@@ -114,13 +114,13 @@ curl -X POST http://localhost:8080/api/processing/toggle
 ## Behavior Details
 
 ### When Processing is ENABLED
-- **Status**: `ENABLED`
+- **Status**: `STARTED`
 - **Consumer Status**: `CONSUMING`
 - **Behavior**: Application processes messages from RabbitMQ queue
 - **Queue**: Messages are consumed and processed
 
 ### When Processing is DISABLED  
-- **Status**: `DISABLED`
+- **Status**: `STOPPED`
 - **Consumer Status**: `IDLE`
 - **Behavior**: Application ignores messages, leaves them in queue
 - **Queue**: Messages remain untouched, ready for when processing is re-enabled
@@ -130,7 +130,7 @@ curl -X POST http://localhost:8080/api/processing/toggle
 | Field | Description |
 |-------|-------------|
 | `enabled` | Boolean indicating if processing is enabled |
-| `status` | String status: `ENABLED` or `DISABLED` |
+| `status` | String status: `STARTED` or `STOPPED` |
 | `consumerStatus` | String indicating queue behavior: `CONSUMING` or `IDLE` |
 | `lastChanged` | ISO 8601 timestamp of last state change |
 | `lastChangeReason` | Human-readable reason for the last state change |

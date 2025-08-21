@@ -130,7 +130,7 @@ public class ProcessingStateService {
         }
         
         public String getStatus() {
-            return enabled ? "ENABLED" : "DISABLED";
+            return enabled ? "STARTED" : "STOPPED";
         }
         
         public String getConsumerStatus() {

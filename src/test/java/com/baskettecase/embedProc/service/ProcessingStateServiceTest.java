@@ -23,7 +23,7 @@ public class ProcessingStateServiceTest {
         
         ProcessingStateService.ProcessingStateInfo stateInfo = processingStateService.getProcessingStateInfo();
         assertTrue(stateInfo.isEnabled());
-        assertEquals("ENABLED", stateInfo.getStatus());
+        assertEquals("STARTED", stateInfo.getStatus());
         assertEquals("CONSUMING", stateInfo.getConsumerStatus());
         assertEquals("Initial state", stateInfo.getLastChangeReason());
         assertNotNull(stateInfo.getLastChanged());
@@ -41,7 +41,7 @@ public class ProcessingStateServiceTest {
         
         ProcessingStateService.ProcessingStateInfo stateInfo = processingStateService.getProcessingStateInfo();
         assertFalse(stateInfo.isEnabled());
-        assertEquals("DISABLED", stateInfo.getStatus());
+        assertEquals("STOPPED", stateInfo.getStatus());
         assertEquals("IDLE", stateInfo.getConsumerStatus());
         assertEquals("Test disable", stateInfo.getLastChangeReason());
     }
@@ -59,7 +59,7 @@ public class ProcessingStateServiceTest {
         
         ProcessingStateService.ProcessingStateInfo stateInfo = processingStateService.getProcessingStateInfo();
         assertTrue(stateInfo.isEnabled());
-        assertEquals("ENABLED", stateInfo.getStatus());
+        assertEquals("STARTED", stateInfo.getStatus());
         assertEquals("CONSUMING", stateInfo.getConsumerStatus());
         assertEquals("Test enable", stateInfo.getLastChangeReason());
     }

@@ -129,7 +129,7 @@ public class ProcessingController {
             "action", action,
             "previousState", Map.of(
                 "enabled", previousState,
-                "status", previousState ? "ENABLED" : "DISABLED"
+                "status", previousState ? "STARTED" : "STOPPED"
             ),
             "currentState", Map.of(
                 "enabled", stateInfo.isEnabled(),
