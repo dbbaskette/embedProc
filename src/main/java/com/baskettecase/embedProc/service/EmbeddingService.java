@@ -229,7 +229,8 @@ public class EmbeddingService {
                     metadata.put("refnum2", refnum2);
                     break;
                 case REFERENCE:
-                    // For reference documents, add doctype=information (no refnums needed)
+                case INFORMATION:
+                    // For reference and information documents, add doctype=information (no refnums needed)
                     metadata.put("doctype", "information");
                     break;
                 case UNKNOWN:
@@ -401,7 +402,8 @@ public class EmbeddingService {
                     metadata.put("refnum2", textWithMetadata.getRefnum2());
                     break;
                 case REFERENCE:
-                    // For reference documents, add doctype=information (no refnums needed)
+                case INFORMATION:
+                    // For reference and information documents, add doctype=information (no refnums needed)
                     metadata.put("doctype", "information");
                     break;
                 case UNKNOWN:

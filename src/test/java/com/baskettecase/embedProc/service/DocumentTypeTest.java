@@ -27,8 +27,26 @@ public class DocumentTypeTest {
     }
 
     @Test
+    public void testInformationDocumentType() {
+        // Test URLs containing /processed_files with non-refnum filenames
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("http://big-data-005.kuhn-labs.com:9870/webhdfs/v1/processed_files/glossary.pdf.txt?op=OPEN"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("https://hdfs.company.com/processed_files/manual.txt"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("/processed_files/guide.pdf.txt"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("file:///home/user/processed_files/readme.txt"));
+    }
+
+    @Test
+    public void testProcessedFilesPolicyDocumentType() {
+        // Test URLs containing /processed_files with refnum pattern filenames
+        assertEquals(DocumentType.POLICY, DocumentType.fromUrl("http://big-data-005.kuhn-labs.com:9870/webhdfs/v1/processed_files/123456-789012.pdf.txt?op=OPEN"));
+        assertEquals(DocumentType.POLICY, DocumentType.fromUrl("https://hdfs.company.com/processed_files/100001-200001.doc.txt"));
+        assertEquals(DocumentType.POLICY, DocumentType.fromUrl("/processed_files/555555-666666.pdf.txt"));
+        assertEquals(DocumentType.POLICY, DocumentType.fromUrl("file:///home/user/processed_files/111111-222222.docx.txt"));
+    }
+
+    @Test
     public void testUnknownDocumentType() {
-        // Test URLs that don't contain /policies or /reference
+        // Test URLs that don't contain /policies, /reference, or /processed_files
         assertEquals(DocumentType.UNKNOWN, DocumentType.fromUrl("http://example.com/documents/file.txt"));
         assertEquals(DocumentType.UNKNOWN, DocumentType.fromUrl("https://api.company.com/files/data.txt"));
         assertEquals(DocumentType.UNKNOWN, DocumentType.fromUrl("/uploads/document.txt"));
@@ -44,6 +62,8 @@ public class DocumentTypeTest {
         assertEquals(DocumentType.POLICY, DocumentType.fromUrl("http://example.com/Policies/document.txt"));
         assertEquals(DocumentType.REFERENCE, DocumentType.fromUrl("http://example.com/REFERENCE/document.txt"));
         assertEquals(DocumentType.REFERENCE, DocumentType.fromUrl("http://example.com/Reference/document.txt"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("http://example.com/PROCESSED_FILES/document.txt"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("http://example.com/Processed_Files/document.txt"));
     }
 
     @Test
@@ -51,6 +71,21 @@ public class DocumentTypeTest {
         // Test that getValue() returns the correct string representation
         assertEquals("policy", DocumentType.POLICY.getValue());
         assertEquals("reference", DocumentType.REFERENCE.getValue());
+        assertEquals("information", DocumentType.INFORMATION.getValue());
         assertEquals("unknown", DocumentType.UNKNOWN.getValue());
+    }
+
+    @Test
+    public void testRefnumPatternMatching() {
+        // Test filename pattern matching for processed_files
+        // Files with refnum pattern should be POLICY
+        assertEquals(DocumentType.POLICY, DocumentType.fromUrl("/processed_files/123456-789012.pdf.txt"));
+        assertEquals(DocumentType.POLICY, DocumentType.fromUrl("/processed_files/100001-200001.docx.txt"));
+        
+        // Files without refnum pattern should be INFORMATION
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("/processed_files/glossary.pdf.txt"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("/processed_files/manual-guide.txt"));
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("/processed_files/123-456.txt")); // Too few digits
+        assertEquals(DocumentType.INFORMATION, DocumentType.fromUrl("/processed_files/1234567-789012.txt")); // Too many digits
     }
 }
