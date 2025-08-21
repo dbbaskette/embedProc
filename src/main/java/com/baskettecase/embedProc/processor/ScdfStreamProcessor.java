@@ -8,6 +8,7 @@ import com.baskettecase.embedProc.service.FileDownloaderService;
 import com.baskettecase.embedProc.service.TextChunkingService;
 import com.baskettecase.embedProc.service.EmbeddingService;
 import com.baskettecase.embedProc.service.DocumentType;
+import com.baskettecase.embedProc.service.ProcessingStateService;
 
 import com.baskettecase.embedProc.service.MonitorService;
 
@@ -45,6 +46,7 @@ public class ScdfStreamProcessor {
     private final FileDownloaderService fileDownloaderService;
     private final TextChunkingService textChunkingService;
     private final EmbeddingService embeddingService;
+    private final ProcessingStateService processingStateService;
 
     private final VectorQueryProcessor vectorQueryProcessor;
     private final MonitorService monitorService;
@@ -66,6 +68,7 @@ public class ScdfStreamProcessor {
     public ScdfStreamProcessor(FileDownloaderService fileDownloaderService,
                              TextChunkingService textChunkingService,
                              EmbeddingService embeddingService,
+                             ProcessingStateService processingStateService,
 
                              VectorQueryProcessor vectorQueryProcessor, 
                              MonitorService monitorService,
@@ -78,6 +81,7 @@ public class ScdfStreamProcessor {
         this.fileDownloaderService = fileDownloaderService;
         this.textChunkingService = textChunkingService;
         this.embeddingService = embeddingService;
+        this.processingStateService = processingStateService;
 
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.monitorService = monitorService;
@@ -303,6 +307,14 @@ public class ScdfStreamProcessor {
             try {
                 if (message == null || message.trim().isEmpty()) {
                     logger.warn("Received empty message, skipping...");
+                    return;
+                }
+
+                // Check if processing is enabled
+                if (!processingStateService.isProcessingEnabled()) {
+                    logger.info("Processing is disabled, leaving message in queue for later processing: {}", 
+                               message.substring(0, Math.min(50, message.length())) + "...");
+                    // Don't acknowledge the message - let it stay in queue
                     return;
                 }
 
