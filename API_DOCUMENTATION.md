@@ -125,3 +125,61 @@ The base path for all API endpoints is `/api/processing`.
 - `filesProcessed`: Number of files successfully processed
 - `filesTotal`: Total number of files to be processed (if known)
 - `timestamp`: Current timestamp when the response was generated
+
+### 6. Get Comprehensive Processing Status
+
+- **Method:** `GET`
+- **Path:** `/status`
+- **Description:** Retrieves comprehensive processing status including file counts, processing state, system metrics, and error information.
+- **Response Body:** A JSON object with detailed processing information.
+
+**Example Response:**
+
+```json
+{
+    "processing": {
+        "enabled": true,
+        "status": "STARTED",
+        "consumerStatus": "CONSUMING",
+        "lastChanged": "2025-08-24T12:00:00Z",
+        "lastChangeReason": "Initial state"
+    },
+    "files": {
+        "processed": 42,
+        "total": 100,
+        "current": "document-123.txt"
+    },
+    "chunks": {
+        "processed": 850,
+        "total": 2000,
+        "pending": 1150,
+        "rate": 12.5
+    },
+    "system": {
+        "status": "PROCESSING",
+        "uptime": "2h 15m",
+        "memoryMB": 512,
+        "errors": 0,
+        "lastError": null
+    },
+    "timestamp": "2025-08-24T12:25:00Z"
+}
+```
+
+**Response Fields:**
+- `processing`: Current processing state and configuration
+- `files`: File processing statistics
+- `chunks`: Text chunk processing metrics  
+- `system`: System health and performance metrics
+- `timestamp`: Current timestamp when the response was generated
+
+## Troubleshooting
+
+### No Files Being Processed
+
+If `filesProcessed` shows 0 despite the application running:
+
+1. **Check Processing State**: Use `GET /state` to verify processing is enabled
+2. **Check Message Queue**: In Cloud Foundry deployments, verify messages are being published to the `textInput` RabbitMQ queue
+3. **Check Logs**: Review application logs for processing activity and errors
+4. **Use Comprehensive Status**: Use `GET /status` to get detailed system information

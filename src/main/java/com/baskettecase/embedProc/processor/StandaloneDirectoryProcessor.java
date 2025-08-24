@@ -8,6 +8,7 @@ import java.nio.file.*;
 import org.springframework.beans.factory.annotation.Value;
 import com.baskettecase.embedProc.service.EmbeddingService;
 import com.baskettecase.embedProc.service.DocumentType;
+import com.baskettecase.embedProc.service.MonitorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,7 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(StandaloneDirectoryProcessor.class);
     
     private final EmbeddingService embeddingService;
-
+    private final MonitorService monitorService;
     private final VectorQueryProcessor vectorQueryProcessor;
     private final JdbcTemplate jdbcTemplate;
     private final String queryText;
@@ -31,7 +32,7 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
     private final Integer defaultRefnum2;
 
     public StandaloneDirectoryProcessor(EmbeddingService embeddingService,
-
+                                      MonitorService monitorService,
                                       VectorQueryProcessor vectorQueryProcessor,
                                       JdbcTemplate jdbcTemplate,
                                       @Value("${app.query.text:}") String queryText,
@@ -39,7 +40,7 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
                                       @Value("${app.reference-numbers.default.refnum1:100001}") Integer defaultRefnum1,
                                       @Value("${app.reference-numbers.default.refnum2:200001}") Integer defaultRefnum2) {
         this.embeddingService = embeddingService;
-
+        this.monitorService = monitorService;
         this.vectorQueryProcessor = vectorQueryProcessor;
         this.jdbcTemplate = jdbcTemplate;
         this.queryText = queryText;
@@ -83,6 +84,11 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
 
     private void processFile(Path file) {
         try {
+            // Update current file being processed
+            if (monitorService != null) {
+                monitorService.setCurrentFile(file.getFileName().toString());
+            }
+            
             String content = Files.readString(file);
             logger.info("Processing file: {}", file.getFileName());
             
@@ -119,10 +125,26 @@ public class StandaloneDirectoryProcessor implements CommandLineRunner {
             
             logger.info("Successfully stored embedding for file: {}", file.getFileName());
             
+            // Update monitor service with processed file
+            if (monitorService != null) {
+                monitorService.incrementFilesProcessed();
+                monitorService.publishEvent("FILE_COMPLETE", file.getFileName().toString());
+            }
+            
         } catch (IOException e) {
             logger.error("Failed to read file: {}, error: {}", file, e.getMessage());
+            // Update monitor service with error
+            if (monitorService != null) {
+                monitorService.setLastError("Failed to read file " + file.getFileName() + ": " + e.getMessage());
+                monitorService.setCurrentFile(null);
+            }
         } catch (Exception e) {
             logger.error("Failed to process file: {}, error: {}", file, e.getMessage());
+            // Update monitor service with error
+            if (monitorService != null) {
+                monitorService.setLastError("Failed to process file " + file.getFileName() + ": " + e.getMessage());
+                monitorService.setCurrentFile(null);
+            }
         }
     }
 

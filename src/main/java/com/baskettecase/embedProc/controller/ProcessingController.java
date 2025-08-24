@@ -163,4 +163,46 @@ public class ProcessingController {
         
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * GET /api/processing/status - Get comprehensive processing status including monitoring data
+     */
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> getProcessingStatus() {
+        logger.debug("GET /api/processing/status requested");
+        
+        ProcessingStateService.ProcessingStateInfo stateInfo = processingStateService.getProcessingStateInfo();
+        MonitorService.MonitoringData monitoringData = monitorService.getMonitoringData();
+        
+        Map<String, Object> response = Map.of(
+            "processing", Map.of(
+                "enabled", stateInfo.isEnabled(),
+                "status", stateInfo.getStatus(),
+                "consumerStatus", stateInfo.getConsumerStatus(),
+                "lastChanged", stateInfo.getLastChanged().toString(),
+                "lastChangeReason", stateInfo.getLastChangeReason()
+            ),
+            "files", Map.of(
+                "processed", monitoringData.getFilesProcessed(),
+                "total", monitoringData.getFilesTotal(),
+                "current", monitoringData.getCurrentFile() != null ? monitoringData.getCurrentFile() : "none"
+            ),
+            "chunks", Map.of(
+                "processed", monitoringData.getProcessedChunks(),
+                "total", monitoringData.getTotalChunks(),
+                "pending", monitoringData.getPendingMessages(),
+                "rate", monitoringData.getProcessingRate()
+            ),
+            "system", Map.of(
+                "status", monitoringData.getStatus(),
+                "uptime", monitoringData.getUptime(),
+                "memoryMB", monitoringData.getMemoryUsedMB(),
+                "errors", monitoringData.getErrorCount(),
+                "lastError", monitoringData.getLastError()
+            ),
+            "timestamp", OffsetDateTime.now(ZoneOffset.UTC).toString()
+        );
+        
+        return ResponseEntity.ok(response);
+    }
 }
