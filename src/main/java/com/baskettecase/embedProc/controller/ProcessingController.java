@@ -1,6 +1,7 @@
 package com.baskettecase.embedProc.controller;
 
 import com.baskettecase.embedProc.service.ProcessingStateService;
+import com.baskettecase.embedProc.service.MonitorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
@@ -23,9 +24,11 @@ public class ProcessingController {
     private static final Logger logger = LoggerFactory.getLogger(ProcessingController.class);
     
     private final ProcessingStateService processingStateService;
+    private final MonitorService monitorService;
 
-    public ProcessingController(ProcessingStateService processingStateService) {
+    public ProcessingController(ProcessingStateService processingStateService, MonitorService monitorService) {
         this.processingStateService = processingStateService;
+        this.monitorService = monitorService;
         logger.info("ProcessingController initialized for cloud profile");
     }
 
@@ -137,6 +140,24 @@ public class ProcessingController {
                 "consumerStatus", stateInfo.getConsumerStatus()
             ),
             "lastChanged", stateInfo.getLastChanged().toString(),
+            "timestamp", OffsetDateTime.now(ZoneOffset.UTC).toString()
+        );
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/processing/files-processed - Get number of files processed
+     */
+    @GetMapping("/files-processed")
+    public ResponseEntity<Map<String, Object>> getFilesProcessed() {
+        logger.debug("GET /api/processing/files-processed requested");
+        
+        MonitorService.MonitoringData monitoringData = monitorService.getMonitoringData();
+        
+        Map<String, Object> response = Map.of(
+            "filesProcessed", monitoringData.getFilesProcessed(),
+            "filesTotal", monitoringData.getFilesTotal(),
             "timestamp", OffsetDateTime.now(ZoneOffset.UTC).toString()
         );
         
