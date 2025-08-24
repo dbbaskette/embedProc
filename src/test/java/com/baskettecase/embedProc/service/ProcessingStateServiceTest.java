@@ -13,25 +13,26 @@ public class ProcessingStateServiceTest {
 
     @BeforeEach
     public void setUp() {
-        processingStateService = new ProcessingStateService();
+        processingStateService = new ProcessingStateService(event -> {});
     }
 
     @Test
     public void testInitialState() {
-        // Processing should be enabled by default
-        assertTrue(processingStateService.isProcessingEnabled());
+        // Processing should be disabled by default (changed to match textProc pattern)
+        assertFalse(processingStateService.isProcessingEnabled());
         
         ProcessingStateService.ProcessingStateInfo stateInfo = processingStateService.getProcessingStateInfo();
-        assertTrue(stateInfo.isEnabled());
-        assertEquals("STARTED", stateInfo.getStatus());
-        assertEquals("CONSUMING", stateInfo.getConsumerStatus());
-        assertEquals("Initial state", stateInfo.getLastChangeReason());
+        assertFalse(stateInfo.isEnabled());
+        assertEquals("STOPPED", stateInfo.getStatus());
+        assertEquals("IDLE", stateInfo.getConsumerStatus());
+        assertEquals("Initial state - processing disabled by default", stateInfo.getLastChangeReason());
         assertNotNull(stateInfo.getLastChanged());
     }
 
     @Test
     public void testDisableProcessing() {
-        // Initially enabled
+        // First enable it
+        processingStateService.enableProcessing("Test setup");
         assertTrue(processingStateService.isProcessingEnabled());
         
         // Disable processing
@@ -48,8 +49,7 @@ public class ProcessingStateServiceTest {
 
     @Test
     public void testEnableProcessing() {
-        // First disable
-        processingStateService.disableProcessing("Test setup");
+        // Initially disabled (no need to disable first)
         assertFalse(processingStateService.isProcessingEnabled());
         
         // Then enable
@@ -66,39 +66,40 @@ public class ProcessingStateServiceTest {
 
     @Test
     public void testToggleProcessing() {
-        // Initially enabled, toggle should disable
-        assertTrue(processingStateService.isProcessingEnabled());
+        // Initially disabled, toggle should enable
+        assertFalse(processingStateService.isProcessingEnabled());
         
         ProcessingStateService.ProcessingStateInfo toggleResult = processingStateService.toggleProcessing("Test toggle 1");
-        assertFalse(toggleResult.isEnabled()); // Now disabled
-        assertTrue(toggleResult.getPreviousState()); // Was enabled
+        assertTrue(toggleResult.isEnabled()); // Now enabled
+        assertFalse(toggleResult.getPreviousState()); // Was disabled
         assertEquals("Test toggle 1", toggleResult.getLastChangeReason());
         
-        // Toggle again should enable
+        // Toggle again should disable
         ProcessingStateService.ProcessingStateInfo toggleResult2 = processingStateService.toggleProcessing("Test toggle 2");
-        assertTrue(toggleResult2.isEnabled()); // Now enabled
-        assertFalse(toggleResult2.getPreviousState()); // Was disabled
+        assertFalse(toggleResult2.isEnabled()); // Now disabled
+        assertTrue(toggleResult2.getPreviousState()); // Was enabled
         assertEquals("Test toggle 2", toggleResult2.getLastChangeReason());
     }
 
     @Test
     public void testNoStateChangeWhenAlreadyInDesiredState() {
-        // Try to enable when already enabled
-        assertTrue(processingStateService.isProcessingEnabled());
-        boolean stateChanged = processingStateService.enableProcessing("Redundant enable");
+        // Try to disable when already disabled
+        assertFalse(processingStateService.isProcessingEnabled());
+        boolean stateChanged = processingStateService.disableProcessing("Redundant disable");
         assertFalse(stateChanged); // No change
         
-        // Disable first
-        processingStateService.disableProcessing("Setup for test");
+        // Enable first
+        processingStateService.enableProcessing("Setup for test");
         
-        // Try to disable when already disabled
-        boolean stateChanged2 = processingStateService.disableProcessing("Redundant disable");
+        // Try to enable when already enabled
+        boolean stateChanged2 = processingStateService.enableProcessing("Redundant enable");
         assertFalse(stateChanged2); // No change
     }
 
     @Test
     public void testReasonHandling() {
-        // Test with null reason
+        // First enable, then test with null reason for disable
+        processingStateService.enableProcessing("Setup");
         processingStateService.disableProcessing(null);
         ProcessingStateService.ProcessingStateInfo stateInfo = processingStateService.getProcessingStateInfo();
         assertEquals("Processing disabled via API", stateInfo.getLastChangeReason());

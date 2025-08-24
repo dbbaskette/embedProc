@@ -2,6 +2,7 @@ package com.baskettecase.embedProc.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.time.OffsetDateTime;
@@ -16,9 +17,14 @@ public class ProcessingStateService {
 
     private static final Logger logger = LoggerFactory.getLogger(ProcessingStateService.class);
     
-    private final AtomicBoolean processingEnabled = new AtomicBoolean(true);
+    private final AtomicBoolean processingEnabled = new AtomicBoolean(false);
     private volatile OffsetDateTime lastStateChange = OffsetDateTime.now(ZoneOffset.UTC);
-    private volatile String lastChangeReason = "Initial state";
+    private volatile String lastChangeReason = "Initial state - processing disabled by default";
+    private final ApplicationEventPublisher eventPublisher;
+    
+    public ProcessingStateService(ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
     
     /**
      * Check if processing is currently enabled
@@ -39,6 +45,7 @@ public class ProcessingStateService {
             lastStateChange = OffsetDateTime.now(ZoneOffset.UTC);
             lastChangeReason = (reason != null && !reason.trim().isEmpty()) ? reason : "Processing enabled via API";
             logger.info("Processing ENABLED: {}", lastChangeReason);
+            eventPublisher.publishEvent(new ProcessingStartedEvent(this, lastChangeReason));
             return true;
         }
         logger.debug("Processing already enabled, no state change");
@@ -56,6 +63,7 @@ public class ProcessingStateService {
             lastStateChange = OffsetDateTime.now(ZoneOffset.UTC);
             lastChangeReason = (reason != null && !reason.trim().isEmpty()) ? reason : "Processing disabled via API";
             logger.info("Processing DISABLED: {}", lastChangeReason);
+            eventPublisher.publishEvent(new ProcessingStoppedEvent(this, lastChangeReason));
             return true;
         }
         logger.debug("Processing already disabled, no state change");
@@ -135,6 +143,38 @@ public class ProcessingStateService {
         
         public String getConsumerStatus() {
             return enabled ? "CONSUMING" : "IDLE";
+        }
+    }
+    
+    /**
+     * Event published when processing is started
+     */
+    public static class ProcessingStartedEvent extends org.springframework.context.ApplicationEvent {
+        private final String reason;
+        
+        public ProcessingStartedEvent(Object source, String reason) {
+            super(source);
+            this.reason = reason;
+        }
+        
+        public String getReason() {
+            return reason;
+        }
+    }
+    
+    /**
+     * Event published when processing is stopped
+     */
+    public static class ProcessingStoppedEvent extends org.springframework.context.ApplicationEvent {
+        private final String reason;
+        
+        public ProcessingStoppedEvent(Object source, String reason) {
+            super(source);
+            this.reason = reason;
+        }
+        
+        public String getReason() {
+            return reason;
         }
     }
 }
