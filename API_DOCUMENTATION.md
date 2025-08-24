@@ -103,3 +103,25 @@ The base path for all API endpoints is `/api/processing`.
     "timestamp": "2025-08-24T12:15:00Z"
 }
 ```
+
+### 5. Get Files Processed Count
+
+- **Method:** `GET`
+- **Path:** `/files-processed`
+- **Description:** Retrieves the number of files that have been processed by the application.
+- **Response Body:** A JSON object containing file processing statistics.
+
+**Example Response:**
+
+```json
+{
+    "filesProcessed": 42,
+    "filesTotal": 100,
+    "timestamp": "2025-08-24T12:20:00Z"
+}
+```
+
+**Response Fields:**
+- `filesProcessed`: Number of files successfully processed
+- `filesTotal`: Total number of files to be processed (if known)
+- `timestamp`: Current timestamp when the response was generated
