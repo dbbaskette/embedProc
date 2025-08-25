@@ -115,6 +115,18 @@ public class MonitorService {
         publishMetrics();
     }
 
+    public void resetCounters() {
+        totalChunks.set(0);
+        processedChunks.set(0);
+        errorCount.set(0);
+        filesProcessed.set(0);
+        filesTotal.set(0);
+        currentFile = null;
+        lastError = null;
+        logger.info("All processing counters reset to zero");
+        publishMetrics();
+    }
+
     public MonitoringData getMonitoringData() {
         return new MonitoringData(
             instanceId,

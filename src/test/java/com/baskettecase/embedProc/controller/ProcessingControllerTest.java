@@ -89,4 +89,26 @@ public class ProcessingControllerTest {
         assertEquals(0L, responseBody.get("filesTotal"));
         assertNotNull(responseBody.get("timestamp"));
     }
+
+    @Test
+    public void testResetCounters() {
+        // Act
+        ResponseEntity<Map<String, Object>> response = processingController.resetCounters();
+
+        // Assert
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        
+        Map<String, Object> responseBody = response.getBody();
+        assertEquals(true, responseBody.get("success"));
+        assertEquals("All processing counters have been reset to zero", responseBody.get("message"));
+        assertNotNull(responseBody.get("timestamp"));
+        
+        // Verify timestamp format (should be ISO format)
+        String timestamp = (String) responseBody.get("timestamp");
+        assertDoesNotThrow(() -> OffsetDateTime.parse(timestamp));
+        
+        // Verify the monitor service resetCounters method was called
+        verify(monitorService, times(1)).resetCounters();
+    }
 }

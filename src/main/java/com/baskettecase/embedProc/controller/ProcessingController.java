@@ -205,4 +205,22 @@ public class ProcessingController {
         
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * POST /api/processing/reset-counters - Reset all processing counters to zero
+     */
+    @PostMapping("/reset-counters")
+    public ResponseEntity<Map<String, Object>> resetCounters() {
+        logger.info("POST /api/processing/reset-counters requested");
+        
+        monitorService.resetCounters();
+        
+        Map<String, Object> response = Map.of(
+            "success", true,
+            "message", "All processing counters have been reset to zero",
+            "timestamp", OffsetDateTime.now(ZoneOffset.UTC).toString()
+        );
+        
+        return ResponseEntity.ok(response);
+    }
 }

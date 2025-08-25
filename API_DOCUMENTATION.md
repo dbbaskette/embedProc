@@ -183,3 +183,34 @@ If `filesProcessed` shows 0 despite the application running:
 2. **Check Message Queue**: In Cloud Foundry deployments, verify messages are being published to the `textInput` RabbitMQ queue
 3. **Check Logs**: Review application logs for processing activity and errors
 4. **Use Comprehensive Status**: Use `GET /status` to get detailed system information
+
+### 7. Reset Processing Counters
+
+- **Method:** `POST`
+- **Path:** `/reset-counters`
+- **Description:** Resets all processing counters (files processed, chunks processed, errors, etc.) to zero. Useful for testing or starting fresh tracking.
+- **Response Body:** A JSON object confirming the reset operation.
+
+**Example Response:**
+
+```json
+{
+    "success": true,
+    "message": "All processing counters have been reset to zero",
+    "timestamp": "2025-08-24T14:30:00Z"
+}
+```
+
+**Response Fields:**
+- `success`: Always true if the operation succeeds
+- `message`: Confirmation message
+- `timestamp`: Current timestamp when the reset was performed
+
+**Note:** This operation resets:
+- Files processed count
+- Files total count  
+- Chunks processed count
+- Total chunks count
+- Error count
+- Current file being processed
+- Last error message
